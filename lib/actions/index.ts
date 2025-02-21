@@ -63,7 +63,7 @@ export async function getAllProducts() {
   try {
     connectToDB();
 
-    const products = await Product.find();
+    const products = await Product.find().sort({ createdAt: -1 }); // Add sorting here
     
     // Serialize all documents
     return products.map(product => serializeMongoDocument(product.toObject()));

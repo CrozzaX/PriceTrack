@@ -196,7 +196,9 @@ const ProductDetails = async ({ params }: Props) => {
 
             <div className="flex flex-wrap gap-10 mt-7 w-full">
               {similarProducts.map((product) => (
-                <ProductCard key={product._id} product={product} />
+                <div key={product._id} className="product-wrapper">
+                  <ProductCard product={product} />
+                </div>
               ))}
             </div>
           </div>

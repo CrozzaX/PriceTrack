@@ -6,6 +6,9 @@ import ProductCard from "@/components/ProductCard"
 
 const Home = async () => {
   const allProducts = await getAllProducts();
+  
+  // Reverse the products array to show newest first
+  const productsToShow = allProducts ? [...allProducts].reverse() : [];
 
   return (
     <>
@@ -42,8 +45,10 @@ const Home = async () => {
         <h2 className="section-text">Trending</h2>
 
         <div className="flex flex-wrap gap-x-8 gap-y-16">
-          {allProducts?.map((product) => (
-            <ProductCard key={product._id} product={product} />
+          {productsToShow.map((product) => (
+            <div key={product._id} className="product-wrapper">
+              <ProductCard product={product} />
+            </div>
           ))}
         </div>
       </section>
