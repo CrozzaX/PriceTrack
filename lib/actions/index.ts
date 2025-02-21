@@ -62,13 +62,13 @@ export async function getProductById(productId: string) {
 export async function getAllProducts() {
   try {
     connectToDB();
-
-    const products = await Product.find().sort({ createdAt: -1 }); // Add sorting here
     
-    // Serialize all documents
+    // Sort by createdAt in descending order (-1) to get newest first
+    const products = await Product.find().sort({ createdAt: -1 });
+    
     return products.map(product => serializeMongoDocument(product.toObject()));
   } catch (error) {
-    console.log('Error in getAllProducts:', error);
+    console.log(error);
     throw new Error('Failed to get products');
   }
 }

@@ -220,15 +220,22 @@ export async function scrapeFlipkartProduct(url: string) {
     
     const currentPrice = Number(priceText.replace(/[^0-9.]/g, '')) || 0;
     
-    const rating = $('.XQDdHH._1Quie7').text().trim() ||
+    const rating = $('.a-size-base a-color-base').text().trim() || 
+                  $('.XQDdHH._1Quie7').text().trim() ||
                   $('._3LWZlK').first().text().trim() ||
                   '0';
                   
-    const reviewsCountText = $('.Wphh3N').text().trim() ||
-                           $('._2_R_DZ').text().trim() ||
-                           '0';
-                           
-    const reviewsCount = Number(reviewsCountText.match(/\d+/)?.[0]) || 0;
+    // Updated review count extraction to get only reviews, not ratings
+    const reviewsText = $('.Wphh3N, ._2_R_DZ').text().trim();
+    let reviewsCount = 0;
+
+    // Extract specifically the Reviews number
+    const reviewMatch = reviewsText.match(/(\d+)\s*Reviews?/i);
+    if (reviewMatch) {
+      reviewsCount = parseInt(reviewMatch[1]);
+    }
+    console.log('DEBUG: Review text:', reviewsText);
+    console.log('DEBUG: Extracted review count:', reviewsCount);
     
     const outOfStock = Boolean($('._16FRp0').length > 0);
 
@@ -369,7 +376,7 @@ export async function scrapeFlipkartProduct(url: string) {
       }],
       discountRate: Number(discountRate),
       category: 'category',
-      reviewsCount: Number(reviewsCount),
+      reviewsCount: reviewsCount,  // This will now be 6 instead of 49
       stars: Number(rating) || 0,
       isOutOfStock: Boolean(outOfStock),
       description: String(description),
