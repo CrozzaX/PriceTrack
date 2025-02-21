@@ -6,6 +6,7 @@ import { connectToDB } from "../mongoose";
 import { scrapeAmazonProduct, scrapeFlipkartProduct, scrapeMyntraProduct } from "../scraper";
 import { getAveragePrice, getHighestPrice, getLowestPrice } from "../utils";
 import { Product as ProductType } from "@/types";
+import mongoose from 'mongoose';
 
 // Helper function to safely serialize MongoDB documents
 const serializeMongoDocument = (doc: any): any => {
@@ -47,6 +48,12 @@ const getProductPlatform = (url: string): 'amazon' | 'flipkart' | 'myntra' | 'un
 export async function getProductById(productId: string) {
   try {
     connectToDB();
+
+    // Validate productId as a valid ObjectId
+    if (!mongoose.Types.ObjectId.isValid(productId)) {
+      console.log("Invalid productId:", productId);
+      return null;
+    }
 
     const product = await Product.findOne({ _id: productId });
     

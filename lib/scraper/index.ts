@@ -89,6 +89,14 @@ export async function scrapeAmazonProduct(url: string) {
     //const description = extractDescription($)
     const description = extractDescription($); // Truncate to 200 characters
 
+    const reviewsText = $('#acrCustomerReviewLink #acrCustomerReviewText').first().text().trim();
+    const reviewsCountParsed = reviewsText ? parseInt(reviewsText.replace(/[^0-9]/g, '')) : 0;
+    console.log("Extracted reviews count from Amazon:", reviewsCountParsed);
+
+    const ratingText = $('a.a-popover-trigger.a-declarative .a-size-base.a-color-base').first().text().trim();
+    const ratingParsed = ratingText ? parseFloat(ratingText) : 0;
+    console.log("Extracted rating from Amazon:", ratingParsed);
+
     // Construct data object with scraped information
     const data = {
       url,
@@ -100,8 +108,8 @@ export async function scrapeAmazonProduct(url: string) {
       priceHistory: [],
       discountRate: Number(discountRate),
       category: 'category',
-      reviewsCount:100,
-      stars: 4.5,
+      reviewsCount: reviewsCountParsed, // updated reviewsCount from Amazon
+      stars: ratingParsed,  // updated rating from Amazon element
       isOutOfStock: outOfStock,
       description,
       lowestPrice: Number(currentPrice) || Number(originalPrice),
@@ -115,7 +123,7 @@ export async function scrapeAmazonProduct(url: string) {
   }
 }
 
-// Helper function to ensure objects are serializable
+// Updated sanitizeData function with proper syntax and type annotations:
 function sanitizeData(obj: any): any {
   // Handle null/undefined
   if (obj === null || obj === undefined) {
@@ -127,9 +135,9 @@ function sanitizeData(obj: any): any {
     return obj.toISOString();
   }
 
-  // Handle arrays
+  // Handle arrays with explicit any type for items
   if (Array.isArray(obj)) {
-    return obj.map(item => sanitizeData(item));
+    return obj.map((item: any) => sanitizeData(item));
   }
 
   // Handle plain objects
@@ -226,16 +234,22 @@ export async function scrapeFlipkartProduct(url: string) {
                   '0';
                   
     // Updated review count extraction to get only reviews, not ratings
-    const reviewsText = $('.Wphh3N, ._2_R_DZ').text().trim();
     let reviewsCount = 0;
-
-    // Extract specifically the Reviews number
-    const reviewMatch = reviewsText.match(/(\d+)\s*Reviews?/i);
-    if (reviewMatch) {
-      reviewsCount = parseInt(reviewMatch[1]);
+    const reviewsContainerText = $('.Wphh3N').text().trim(); // e.g.: "18,015 Ratings & 2,007 Reviews"
+    if (reviewsContainerText.includes('&')) {
+      const parts = reviewsContainerText.split('&');
+      const reviewsPart = parts[1].trim(); // e.g.: "2,007 Reviews"
+      const matchReviews = reviewsPart.match(/([\d,]+)\s*Reviews/i);
+      if (matchReviews) {
+        reviewsCount = parseInt(matchReviews[1].replace(/,/g, ''));
+      }
+    } else {
+      const reviewMatch = reviewsContainerText.match(/(\d+)\s*Reviews?/i);
+      if (reviewMatch) {
+        reviewsCount = parseInt(reviewMatch[1]);
+      }
     }
-    console.log('DEBUG: Review text:', reviewsText);
-    console.log('DEBUG: Extracted review count:', reviewsCount);
+    console.log('Extracted flipkart reviews count:', reviewsCount);
     
     const outOfStock = Boolean($('._16FRp0').length > 0);
 
@@ -376,8 +390,8 @@ export async function scrapeFlipkartProduct(url: string) {
       }],
       discountRate: Number(discountRate),
       category: 'category',
-      reviewsCount: reviewsCount,  // This will now be 6 instead of 49
-      stars: Number(rating) || 0,
+      reviewsCount: reviewsCount,  // now set using the proper flipkart review count
+      stars: Number(rating) || 0,         // now set using the extracted flipkart rating
       isOutOfStock: Boolean(outOfStock),
       description: String(description),
       lowestPrice: Number(currentPrice),
@@ -386,14 +400,44 @@ export async function scrapeFlipkartProduct(url: string) {
     };
 
     // Sanitize the data
-    const data = sanitizeData(rawData);
+    // const data = sanitizeData(rawData);
 
     // Validate essential data
-    if (!data.title || data.currentPrice <= 0) {
+    if (!rawData.title || rawData.currentPrice <= 0) {
       throw new Error('Missing essential product data');
     }
 
-    return data;
+    // ...inside scrapeFlipkartProduct, after price extraction and before final data creation, add:
+    const ratingElem = $('div.XQDdHH').first();
+    const ratingText = ratingElem.contents().filter((_, el) => el.type === 'text').text().trim();
+    const ratingParsed = ratingText ? parseFloat(ratingText) : 0;
+    console.log("Extracted flipkart rating:", ratingParsed);
+
+    // ...in the final data object for Flipkart, update stars property:
+    const finalData = {
+      // ...existing properties...
+      url,
+      currency: '₹',
+      image: String(imageUrl),
+      title: String(title),
+      currentPrice: Number(currentPrice),
+      originalPrice: Number(originalPrice),
+      priceHistory: [{
+        price: Number(currentPrice),
+        date: new Date().toISOString()
+      }],
+      discountRate: Number(discountRate),
+      category: 'category',
+      reviewsCount: reviewsCount,  // now set using the proper flipkart review count
+      stars: ratingParsed,  // now set using the newly extracted flipkart rating
+      isOutOfStock: Boolean(outOfStock),
+      description: String(description),
+      lowestPrice: Number(currentPrice),
+      highestPrice: Number(originalPrice),
+      averagePrice: Number((currentPrice + originalPrice) / 2),
+    };
+
+    return sanitizeData(finalData);
 
   } catch (error: any) {
     console.log('Error scraping Flipkart product:', {
