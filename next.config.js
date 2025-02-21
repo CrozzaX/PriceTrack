@@ -14,8 +14,18 @@ const nextConfig = {
         protocol: 'https',
         hostname: 'static-assets-web.flixcart.com',
       },
+      {
+        protocol: 'https',
+        hostname: 'assets.myntassets.com',  // <-- Added domain for Myntra images
+      },
     ],
-    domains: ['m.media-amazon.com', 'static-assets-web.flixcart.com','rukminim1.flixcart.com', 'rukminim2.flixcart.com'],
+    domains: [
+      'm.media-amazon.com',
+      'static-assets-web.flixcart.com',
+      'rukminim1.flixcart.com',
+      'rukminim2.flixcart.com',
+      'assets.myntassets.com' // <-- Added domain here as well
+    ],
     unoptimized: true,
   },
 };

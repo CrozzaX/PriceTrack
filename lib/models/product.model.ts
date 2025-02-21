@@ -11,7 +11,7 @@ const productSchema = new mongoose.Schema({
     { 
       price: { type: Number, required: true },
       date: { type: Date, default: Date.now }
-    },
+    }
   ],
   lowestPrice: { type: Number },
   highestPrice: { type: Number },
@@ -20,10 +20,13 @@ const productSchema = new mongoose.Schema({
   description: { type: String },
   category: { type: String },
   reviewsCount: { type: Number },
+  stars: { type: Number },
   isOutOfStock: { type: Boolean, default: false },
   users: [
-    {email: { type: String, required: true}}
-  ], default: [],
+    {
+      email: { type: String, required: true }
+    }
+  ],
 }, { timestamps: true });
 
 const Product = mongoose.models.Product || mongoose.model('Product', productSchema);

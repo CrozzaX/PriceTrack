@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import Product from "../models/product.model";
 import { connectToDB } from "../mongoose";
-import { scrapeAmazonProduct, scrapeFlipkartProduct } from "../scraper";
+import { scrapeAmazonProduct, scrapeFlipkartProduct, scrapeMyntraProduct } from "../scraper";
 import { getAveragePrice, getHighestPrice, getLowestPrice } from "../utils";
 import { Product as ProductType } from "@/types";
 
@@ -30,16 +30,17 @@ const serializeMongoDocument = (doc: any): any => {
     serialized.users = serialized.users.map((user: any) => ({
       ...user,
       _id: user._id?.toString()
-    }));
+    })); 
   }
   
   return serialized;
 };
 
 // Helper function to determine the e-commerce platform
-const getProductPlatform = (url: string): 'amazon' | 'flipkart' | 'unknown' => {
+const getProductPlatform = (url: string): 'amazon' | 'flipkart' | 'myntra' | 'unknown' => {
   if (url.includes('amazon')) return 'amazon';
   if (url.includes('flipkart')) return 'flipkart';
+  if (url.includes('myntra')) return 'myntra';
   return 'unknown';
 };
 
@@ -107,6 +108,9 @@ export async function scrapeAndStoreProduct(productUrl: string) {
         break;
       case 'flipkart':
         scrapedProduct = await scrapeFlipkartProduct(productUrl);
+        break;
+      case 'myntra':
+        scrapedProduct = await scrapeMyntraProduct(productUrl);
         break;
       default:
         throw new Error('Unsupported e-commerce platform');

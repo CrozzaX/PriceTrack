@@ -25,6 +25,13 @@ const isValidProductURL = (url: string) => {
       return true;
     }
 
+    // Check for Myntra URLs - update the validation pattern
+    if (hostname.includes('myntra.com')) {
+      // Myntra product URLs can have these patterns:
+      // /shirts/roadster/... or /roadster/shirts/... or similar variations
+      return true;
+    }
+
     return false;
   } catch (error) {
     return false;
@@ -40,7 +47,7 @@ const Searchbar = () => {
 
     const isValidLink = isValidProductURL(searchPrompt);
 
-  if(!isValidLink) return alert('Please provide a valid Amazon or Flipkart link')
+    if(!isValidLink) return alert('Please provide a valid Amazon, Flipkart, or Myntra link')
 
     try {
       setIsLoading(true);

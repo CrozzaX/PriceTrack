@@ -406,3 +406,255 @@ export async function scrapeFlipkartProduct(url: string) {
     throw new Error(`Failed to scrape Flipkart product: ${error.message}`);
   }
 }
+
+export async function scrapeMyntraProduct(url: string) {
+  if (!url) return null;
+
+  const username = String(process.env.BRIGHT_DATA_USERNAME);
+  const password = String(process.env.BRIGHT_DATA_PASSWORD);
+  const port = 33335;
+  const session_id = (1000000 * Math.random()) | 0;
+
+  const options = {
+    auth: { username: `${username}-session-${session_id}`, password },
+    host: 'brd.superproxy.io',
+    port,
+    rejectUnauthorized: false,
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) ...',
+      // ...other headers...
+    },
+    maxRedirects: 5,
+    timeout: 30000,
+  };
+
+  // Declare variables for prices, title, and description
+  let currentPrice = 0;
+  let originalPrice = 0;
+  let discountRate = 0;
+  let title = "";
+  let description = "";  // <-- Added declaration for description
+  let reviewsCount = 0;  // <-- Added declaration for reviewsCount
+
+  try {
+    console.log('Fetching URL:', url);
+    const response = await axios.get(url, options);
+    console.log('Response Headers:', response.headers);
+    console.log('First 500 chars:', response.data.substring(0, 500));
+    const $ = cheerio.load(response.data);
+
+    // Extract fullTitle from common selectors
+    const fullTitle = $('h1').text().trim() ||
+                      $('.pdp-title').text().trim() ||
+                      $('title').text().trim();
+
+    // Updated image extraction logic for Myntra using the image-grid-imageContainer
+
+    let imageUrl = "";
+    const container = $('.image-grid-imageContainer').first();
+    if (container.length) {
+      const imageDiv = container.find('.image-grid-image').first();
+      const styleAttr = imageDiv.attr('style');
+      if (styleAttr) {
+        // Use regex that matches quotes correctly
+        const regex = /background-image:\s*url\(\s*(['"])(.*?)\1\s*\)/i;
+        const match = styleAttr.match(regex);
+        if (match && match[2]) {
+          imageUrl = match[2].trim();
+          console.log('Extracted image URL from container:', imageUrl);
+        }
+      }
+    }
+    // Fallback to previous logic if imageUrl is still empty
+    if (!imageUrl) {
+      const imgSelectors = [
+        'img[src*="assets.myntassets.com"]',
+        'img[src*="myntra"]',
+        '.image-grid-image img',
+        '.pdp-image img'
+      ];
+      for (const selector of imgSelectors) {
+        const img = $(selector).first();
+        const src = img.attr('src');
+        if (src) {
+          imageUrl = src;
+          console.log('Found fallback image URL:', imageUrl);
+          break;
+        }
+      }
+    }
+
+    // Extract prices from the price container
+    const priceContainer = $('.pdp-discount-container');
+    if (priceContainer.length > 0) {
+      // Use DOM to get current price (e.g., <strong>₹863</strong>)
+      const currentPriceText = priceContainer.find('.pdp-price strong').text().trim();
+      currentPrice = Number(currentPriceText.replace(/[₹,]/g, ''));
+      console.log('Found current price from HTML:', currentPrice);
+
+      // Get MRP from <s> tag inside .pdp-mrp
+      const mrpText = priceContainer.find('.pdp-mrp s').text().trim();
+      originalPrice = Number(mrpText.replace(/[₹,]/g, ''));
+      console.log('Found original price from HTML:', originalPrice);
+
+      // Extract discount percentage if available
+      const discountText = priceContainer.find('.pdp-discount').text().trim();
+      const discountMatch = discountText.match(/(\d+)%/);
+      discountRate = discountMatch ? Number(discountMatch[1]) : 0;
+      console.log('Found discount rate from HTML:', discountRate);
+
+      // Optional fallback: check verbiage section if needed
+      const verbiageSellingPrice = priceContainer
+        .find('.pdp-mrp-verbiage-amt')
+        .filter((_, el) => $(el).prev().find('b').text() === 'Selling Price')
+        .text().trim();
+      if (verbiageSellingPrice) {
+        const verbiagePrice = Number(verbiageSellingPrice.replace(/[^0-9]/g, ''));
+        if (!currentPrice && verbiagePrice) {
+          currentPrice = verbiagePrice;
+          console.log('Using verbiage selling price:', currentPrice);
+        }
+      }
+    }
+
+    // Try to extract JSON data using string splitting instead of regex
+    let productData: any = null;
+    $('script').each((_, el) => {
+      const content = $(el).html();
+      if (content && content.includes('window.__myx =')) {
+        const parts = content.split('window.__myx =');
+        if (parts[1]) {
+          // Try to find the end of the JSON object by locating the first occurrence of "};"
+          let jsonText = parts[1];
+          const endIndex = jsonText.indexOf('};');
+          if (endIndex !== -1) {
+            jsonText = jsonText.substring(0, endIndex + 1);
+          } else {
+            jsonText = jsonText.split(';')[0].trim();
+          }
+          try {
+            const data = JSON.parse(jsonText);
+            if (data && data.pdpData) {
+              productData = data.pdpData;
+              console.log('Extracted product data from JSON:', productData);
+              return false; // break loop
+            }
+          } catch (e) {
+            console.log('Error parsing JSON via split:', e);
+          }
+        }
+      }
+    });
+
+    // Update JSON prices regardless of HTML extraction,
+    // preferring the discounted price if available
+    if (productData) {
+      const discounted = productData.price?.discounted;
+      const mrp = productData.price?.mrp || productData.mrp || 0;
+      if (discounted && (currentPrice === 0 || discounted < currentPrice)) {
+        currentPrice = discounted;
+      }
+      if (mrp) {
+        originalPrice = mrp;
+      }
+      title = productData.name || fullTitle;
+      console.log('Using JSON prices to override:', { currentPrice, originalPrice, title });
+    } else if (fullTitle && !title) {
+      title = fullTitle;
+    }
+
+    // Calculate discount if possible
+    if (originalPrice && currentPrice && originalPrice > currentPrice) {
+      discountRate = Math.round(((originalPrice - currentPrice) / originalPrice) * 100);
+    }
+
+    // Update detailed product description if available from JSON productDetails
+    if (productData && productData.productDetails && Array.isArray(productData.productDetails)) {
+      const details = productData.productDetails.map((detail: any) => {
+        let text = "";
+        if (detail.title) text += detail.title + "\n\n";
+        if (detail.description) {
+          // Replace HTML <br> tags with newlines
+          text += detail.description.replace(/<br\s*\/?>/gi, "\n");
+        }
+        return text.trim();
+      }).filter(Boolean);
+      if (details.length > 0) {
+        description = details.join("\n\n");
+        console.log("Updated description from productDetails:", description);
+      }
+    }
+
+    // ...after updating JSON prices with productData, add:
+
+    if (productData && productData.media && Array.isArray(productData.media.albums) && productData.media.albums.length > 0) {
+      const album = productData.media.albums[0];
+      if (album && album.url) {
+        imageUrl = album.url;
+        console.log("Using media album image from JSON:", imageUrl);
+      }
+    }
+
+    // ...inside scrapeMyntraProduct, after updating JSON prices with productData...
+    if (productData && productData.shoppableLooks && productData.shoppableLooks.src) {
+      imageUrl = productData.shoppableLooks.src;
+      console.log("Using shoppableLooks image from productData (priority):", imageUrl);
+    }
+
+    // Only use the colour image if shoppableLooks image is not available
+    if (!imageUrl && productData && productData.colours && productData.colours.length > 0) {
+      const color = productData.colours[0];
+      if (color.image) {
+        imageUrl = color.image;
+        console.log("Using colour image from productData as fallback:", imageUrl);
+      }
+    }
+
+    // ...inside scrapeMyntraProduct, after processing productData and before final data object creation...
+    if (productData && productData.ratings && productData.ratings.totalCount) {
+      reviewsCount = Number(productData.ratings.totalCount);
+      console.log("Using totalCount for reviewsCount:", reviewsCount);
+    }
+    // ...remaining code...
+
+    // ...inside scrapeMyntraProduct, after extracting prices and before final data object creation...
+    const rating = $('.a-size-base a-color-base').text().trim() || 
+                   $('.XQDdHH._1Quie7').text().trim() ||
+                   $('._3LWZlK').first().text().trim() ||
+                   '0';
+    console.log("Extracted rating:", rating);
+    // ...remaining code...
+
+    const data = {
+      url,
+      currency: '₹',
+      image: imageUrl || 'https://constant.myntassets.com/web/assets/img/MyntraWebSprite_27_01_2021.png',
+      title: title || fullTitle || url.split('/').pop()?.split('-').join(' ') || 'Myntra Product',
+      currentPrice: currentPrice || 999,
+      originalPrice: originalPrice || currentPrice || 999,
+      priceHistory: [{ price: currentPrice || 999, date: new Date().toISOString() }],
+      discountRate,
+      category: 'Fashion',
+      reviewsCount: reviewsCount,  // Use totalCount extracted from ratings
+      stars: (productData && productData.ratings && productData.ratings.averageRating) ? productData.ratings.averageRating : (Number(rating) || 0),
+      isOutOfStock: false,
+      description: description || `Product available on Myntra. Please visit ${url} for more details.`,
+      lowestPrice: currentPrice || 999,
+      highestPrice: originalPrice || (currentPrice * 1.2),
+      averagePrice: currentPrice ? (currentPrice + originalPrice) / 2 : 999,
+    };
+
+    console.log('Final scraped data:', data);
+    return sanitizeData(data);
+
+  } catch (error: any) {
+    console.error('Detailed error:', {
+      message: error.message,
+      stack: error.stack,
+      response: error.response?.data?.substring(0, 1000),
+      status: error.response?.status,
+      headers: error.response?.headers,
+    });
+    throw new Error(`Failed to scrape Myntra product: ${error.message}`);
+  }
+}
