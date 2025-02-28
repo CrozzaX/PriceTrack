@@ -10,8 +10,12 @@
   },
   "dependencies": {
     "@headlessui/react": "^1.7.19",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/jsonwebtoken": "^9.0.9",
     "axios": "^1.7.9",
+    "bcryptjs": "^3.0.2",
     "cheerio": "^1.0.0-rc.12",
+    "jsonwebtoken": "^9.0.2",
     "mongoose": "^7.8.4",
     "next": "latest",
     "nodemailer": "^6.9.16",

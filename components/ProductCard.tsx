@@ -32,42 +32,40 @@ const ProductCard = ({ product }: Props) => {
   };
 
   return (
-    <Link href={`/products/${product._id || ''}`} className="product-card">
-      <button 
+    <Link href={`/products/${product._id}`} className="product-card relative">
+      <button
         onClick={handleCompareClick}
-        className="absolute top-2 right-2 z-10 w-8 h-8 flex items-center justify-center bg-white rounded-full shadow-md hover:bg-gray-100"
+        className="absolute top-2 right-2 z-10 w-8 h-8 bg-white rounded-full shadow-md flex items-center justify-center hover:bg-gray-100 transition-colors"
       >
-        <Image 
-          src={isInCompare ? "/assets/icons/check.svg" : "/assets/icons/compare-arrows.svg"}
-          alt="+"
-          width={16}
-          height={16}
-          className="object-contain"
-        />
+        {isInCompare ? (
+          <span className="text-2xl text-gray-600 leading-none mb-1">−</span>
+        ) : (
+          <span className="text-2xl text-gray-600 leading-none">+</span>
+        )}
       </button>
 
-      <div className="product-card_img-container">
-        <Image 
-          src={getImageUrl(product.image)}
-          alt={product.title || 'Product Image'}
-          width={200}
-          height={200}
-          className="product-card_img"
+      <div className="product-image-container">
+        <Image
+          src={product.image}
+          alt={product.title}
+          fill
+          className="object-contain p-2"
+          sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
         />
       </div>
-
-      <div className="product-card_content">
-        <h3 className="product-title">{product.title || 'Untitled Product'}</h3>
-
-        <div className="flex justify-between items-center mt-2">
-          <p className="text-black opacity-50 text-sm capitalize">
-            {product.category || 'General'}
-          </p>
-
-          <p className="text-secondary font-semibold">
-            <span>{product.currency || '$'}</span>
-            <span>{typeof product.currentPrice === 'number' ? product.currentPrice.toFixed(2) : '0.00'}</span>
-          </p>
+      
+      <div className="product-details">
+        <h3 className="product-title" title={product.title}>
+          {product.title}
+        </h3>
+        
+        <div className="flex items-center justify-between mt-auto">
+          <div className="product-category">
+            {product.category}
+          </div>
+          <div className="product-price">
+            {product.currency}{product.currentPrice.toLocaleString()}
+          </div>
         </div>
       </div>
     </Link>

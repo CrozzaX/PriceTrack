@@ -1,6 +1,6 @@
 // app/products/[id]/page.tsx
 import Modal from "@/components/Modal";
-import PriceInfoCard from "@/components/PriceInfoCard";
+import PriceStats from "@/components/PriceStats";
 import ProductCard from "@/components/ProductCard";
 import { getProductById, getSimilarProducts } from "@/lib/actions"
 import { formatNumber } from "@/lib/utils";
@@ -11,26 +11,32 @@ import { redirect } from "next/navigation";
 import PriceHistoryChart from '@/components/PriceHistoryChart';
 
 interface Props {
-  params: Promise<{ id: string }>;
+  params: Promise<{ id: string }> | { id: string }
 }
 
-const ProductDetails = async ({ params }: Props) => {
+export default async function ProductDetails({ params }: Props) {
   try {
     const resolvedParams = await params;
-    const id = resolvedParams.id;
+    const productId = resolvedParams.id;
 
-    const product = await getProductById(id);
+    if (!productId) {
+      redirect('/');
+    }
 
-    if(!product) redirect('/')
+    const product = await getProductById(productId);
 
-    const similarProducts = await getSimilarProducts(id);
+    if (!product) {
+      redirect('/');
+    }
+
+    const similarProducts = await getSimilarProducts(productId);
 
     return (
       <div className="product-container">
         <div className="flex gap-28 xl:flex-row flex-col">
           <div className="product-image">
             <Image 
-              src={product.image || '/assets/images/placeholder.jpg'}
+              src={product.image}
               alt={product.title}
               width={580}
               height={400}
@@ -54,7 +60,7 @@ const ProductDetails = async ({ params }: Props) => {
                 </Link>
               </div>
 
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
                 <div className="product-hearts">
                   <Image 
                     src="/assets/icons/red-heart.svg"
@@ -119,7 +125,7 @@ const ProductDetails = async ({ params }: Props) => {
                       width={16}
                       height={16}
                     />
-                    <p className="index-ratingsCount text-sm text-secondary font-semibold">
+                    <p className="text-sm text-secondary font-semibold">
                       {product.reviewsCount} Reviews
                     </p>
                   </div>
@@ -127,29 +133,14 @@ const ProductDetails = async ({ params }: Props) => {
               </div>
             </div>
 
-            <div className="my-7 flex flex-col gap-5">
-              <div className="flex gap-5 flex-wrap">
-                <PriceInfoCard 
-                  title="Current Price"
-                  iconSrc="/assets/icons/price-tag.svg"
-                  value={`${product.currency} ${formatNumber(product.currentPrice)}`}
-                />
-                <PriceInfoCard 
-                  title="Average Price"
-                  iconSrc="/assets/icons/chart.svg"
-                  value={`${product.currency} ${formatNumber(product.averagePrice)}`}
-                />
-                <PriceInfoCard 
-                  title="Highest Price"
-                  iconSrc="/assets/icons/arrow-up.svg"
-                  value={`${product.currency} ${formatNumber(product.highestPrice)}`}
-                />
-                <PriceInfoCard 
-                  title="Lowest Price"
-                  iconSrc="/assets/icons/arrow-down.svg"
-                  value={`${product.currency} ${formatNumber(product.lowestPrice)}`}
-                />
-              </div>
+            <div className="my-7">
+              <PriceStats 
+                currentPrice={product.currentPrice}
+                averagePrice={product.averagePrice}
+                highestPrice={product.highestPrice}
+                lowestPrice={product.lowestPrice}
+                currency={product.currency}
+              />
             </div>
 
             <div className="my-7">
@@ -157,46 +148,46 @@ const ProductDetails = async ({ params }: Props) => {
               <PriceHistoryChart priceHistory={product.priceHistory} />
             </div>
 
-            <Modal productId={id} />
+            <Modal productId={productId} />
           </div>
         </div>
 
-        <div className="flex flex-col gap-16">
-          <div className="flex flex-col gap-5">
-            <h3 className="text-2xl text-secondary font-semibold">
-              Product Description
-            </h3>
+        <div className="flex flex-col gap-5">
+          <h3 className="text-2xl text-secondary font-semibold">
+            Product Description
+          </h3>
 
-            <div className="flex flex-col gap-4">
-              {product?.description?.split('\n').filter(Boolean).map((line: string, index: number) => (
-                <p key={index} className="text-black-100">
-                  {line}
-                </p>
-              ))}
-            </div>
+          <div className="flex flex-col gap-4">
+            {product?.description?.split('\n').filter(Boolean).map((line: string, index: number) => (
+              <p key={index} className="text-black-100">
+                {line}
+              </p>
+            ))}
           </div>
-
-          <button className="btn w-fit mx-auto flex items-center justify-center gap-3 min-w-[200px]">
-            <Image 
-              src="/assets/icons/bag.svg"
-              alt="check"
-              width={22}
-              height={22}
-            />
-
-            <Link href="/" className="text-base text-white">
-              Buy Now
-            </Link>
-          </button>
         </div>
+
+        <button className="bg-[#111827] text-white rounded-full px-6 py-3 w-fit mx-auto flex items-center justify-center gap-3 min-w-[200px] hover:opacity-90 transition-opacity">
+          <Image 
+            src="/assets/icons/bag.svg"
+            alt="check"
+            width={22}
+            height={22}
+          />
+
+          <Link href="/" className="text-base text-white">
+            Buy Now
+          </Link>
+        </button>
 
         {similarProducts && similarProducts?.length > 0 && (
           <div className="py-14 flex flex-col gap-2 w-full">
             <p className="section-text">Similar Products</p>
 
-            <div className="flex flex-wrap gap-10 mt-7 w-full">
+            <div className="flex flex-wrap justify-center gap-6 mt-7">
               {similarProducts.map((product) => (
-                <ProductCard key={product._id} product={product} />
+                <div key={product._id} className="product-wrapper">
+                  <ProductCard product={product} />
+                </div>
               ))}
             </div>
           </div>
@@ -208,5 +199,3 @@ const ProductDetails = async ({ params }: Props) => {
     redirect('/');
   }
 }
-
-export default ProductDetails;
