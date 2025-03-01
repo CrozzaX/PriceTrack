@@ -4,6 +4,7 @@ import type { Metadata } from 'next'
 import { Inter, Space_Grotesk } from 'next/font/google'
 import { CompareProvider } from '@/lib/context/CompareContext'
 import BottomCompareBar from '@/components/BottomCompareBar'
+import { Toaster } from 'react-hot-toast'
 
 const inter = Inter({ subsets: ['latin'] })
 const spaceGrotesk = Space_Grotesk({ 
@@ -30,6 +31,7 @@ export default function RootLayout({
             {children}
             <BottomCompareBar />
           </main>
+          <Toaster position="top-center" />
         </CompareProvider>
       </body>
     </html>

@@ -10,10 +10,23 @@ interface SavedProductCardProps {
 
 export default function SavedProductCard({ product, onRemove }: SavedProductCardProps) {
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: product.currency || 'USD'
-    }).format(price);
+    // Handle invalid currency codes or non-ASCII characters
+    let currencyCode = 'USD';
+    
+    // Check if product.currency exists and is a valid currency code
+    if (product.currency && /^[A-Z]{3}$/.test(product.currency)) {
+      currencyCode = product.currency;
+    }
+    
+    try {
+      return new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: currencyCode
+      }).format(price);
+    } catch (error) {
+      // Fallback to simple formatting if NumberFormat fails
+      return `$${price.toFixed(2)}`;
+    }
   };
 
   const calculateDiscountPercentage = (currentPrice: number, originalPrice: number) => {

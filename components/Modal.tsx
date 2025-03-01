@@ -10,7 +10,7 @@ interface Props {
 }
 
 const Modal = ({ productId }: Props) => {
-  let [isOpen, setIsOpen] = useState(true)
+  let [isOpen, setIsOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [email, setEmail] = useState('');
 
@@ -31,13 +31,23 @@ const Modal = ({ productId }: Props) => {
 
   return (
     <>
-      <button type="button" className="btn" onClick={openModal}>
+      <button 
+        type="button" 
+        className="bg-[#111827] text-white rounded-full px-6 py-3 w-fit flex items-center justify-center gap-3 min-w-[200px] hover:opacity-90 transition-opacity" 
+        onClick={openModal}
+      >
+        <Image 
+          src="/assets/icons/bookmark.svg"
+          alt="bookmark"
+          width={22}
+          height={22}
+        />
         Track
       </button>
 
       <Transition appear show={isOpen} as={Fragment}>
-        <Dialog as="div" onClose={closeModal} className="dialog-container">
-          <div className="min-h-screen px-4 text-center">
+        <Dialog as="div" onClose={closeModal} className="fixed inset-0 z-50 overflow-y-auto">
+          <div className="flex min-h-screen items-center justify-center p-4">
             <Transition.Child
               as={Fragment}
               enter="ease-out duration-300"
@@ -47,13 +57,8 @@ const Modal = ({ productId }: Props) => {
               leaveFrom="opacity-100"
               leaveTo="opacity-0"
             >
-              <Dialog.Overlay className="fixed inset-0" /> 
+              <Dialog.Overlay className="fixed inset-0 bg-black/25" /> 
             </Transition.Child>
-
-            <span
-              className="inline-block h-screen align-middle"
-              aria-hidden="true"
-            />
             
             <Transition.Child
               as={Fragment}
@@ -64,7 +69,7 @@ const Modal = ({ productId }: Props) => {
               leaveFrom="opacity-100 scale-100"
               leaveTo="opacity-0 scale-95"
             >
-              <div className="dialog-content">
+              <div className="relative bg-white rounded-2xl p-6 w-full max-w-md mx-auto shadow-xl">
                 <div className="flex flex-col">
                   <div className="flex justify-between">
                     <div className="p-3 border border-gray-200 rounded-10">
@@ -86,7 +91,7 @@ const Modal = ({ productId }: Props) => {
                     />
                   </div>
 
-                  <h4 className="dialog-head_text">
+                  <h4 className="text-xl font-bold text-gray-900 mt-4">
                     Stay updated with product pricing alerts right in your inbox!
                   </h4>
 
@@ -96,17 +101,18 @@ const Modal = ({ productId }: Props) => {
                 </div>
 
                 <form className="flex flex-col mt-5" onSubmit={handleSubmit}>
-                  <label htmlFor="email" className="text-sm font-medium text-gray-700">
+                  <label htmlFor="email" className="text-sm font-medium text-gray-700 text-left">
                     Email address
                   </label>
-                  <div className="dialog-input_container">
-                    <Image 
-                      src="/assets/icons/mail.svg"
-                      alt='mail'
-                      width={18}
-                      height={18}
-                    />
-
+                  <div className="relative mt-1">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                      <Image 
+                        src="/assets/icons/mail.svg"
+                        alt='mail'
+                        width={18}
+                        height={18}
+                      />
+                    </div>
                     <input 
                       required
                       type="email"
@@ -114,12 +120,13 @@ const Modal = ({ productId }: Props) => {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="Enter your email address"
-                      className='dialog-input'
+                      className='w-full py-2.5 pl-10 pr-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-1 focus:ring-blue-500'
                     />
                   </div>
 
-                  <button type="submit"
-                    className="dialog-btn"
+                  <button 
+                    type="submit"
+                    className="bg-[#111827] text-white py-2.5 px-5 rounded-lg mt-4 hover:opacity-90 transition-opacity mx-auto w-full"
                   >
                     {isSubmitting ? 'Submitting...' : 'Track'}
                   </button>

@@ -5,20 +5,59 @@ import Image from 'next/image';
 import Link from 'next/link';
 import React from 'react'
 import { useCompare } from '@/lib/context/CompareContext';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import Cookies from 'js-cookie';
+import { toast } from 'react-hot-toast';
 
 interface Props {
   product: Product;
 }
 
 const ProductCard = ({ product }: Props) => {
+  const router = useRouter();
   const { compareProducts, addToCompare, removeFromCompare } = useCompare();
   const isInCompare = compareProducts.some(p => p._id === product._id);
+  const [isSaved, setIsSaved] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
   
   // Ensure the image URL is absolute and has a default
   const getImageUrl = (url: string | undefined): string => {
     if (!url) return '/assets/images/placeholder.jpg';
     return url.startsWith("//") ? `https:${url}` : url;
   };
+
+  useEffect(() => {
+    // Check if user is logged in (check both localStorage and cookies)
+    const token = localStorage.getItem('token') || Cookies.get('token');
+    setIsLoggedIn(!!token);
+    
+    // Check if product is already saved
+    const checkSavedStatus = async () => {
+      if (!token) return;
+      
+      try {
+        const response = await fetch('/api/user/saved-products', {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          const isProductSaved = data.products.some(
+            (p: any) => p._id === product._id
+          );
+          setIsSaved(isProductSaved);
+        }
+      } catch (error) {
+        console.error('Error checking saved status:', error);
+      }
+    };
+    
+    checkSavedStatus();
+  }, [product._id]);
 
   const handleCompareClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -31,18 +70,98 @@ const ProductCard = ({ product }: Props) => {
     }
   };
 
+  const handleSaveClick = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    
+    if (!isLoggedIn) {
+      // Redirect to login with return URL
+      const returnUrl = `/products`;
+      router.push(`/login?returnUrl=${encodeURIComponent(returnUrl)}`);
+      return;
+    }
+    
+    setIsLoading(true);
+    
+    try {
+      const token = localStorage.getItem('token') || Cookies.get('token');
+      
+      if (isSaved) {
+        // Remove product from saved list
+        const response = await fetch(`/api/user/saved-products/${product._id}`, {
+          method: 'DELETE',
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        });
+        
+        if (response.ok) {
+          setIsSaved(false);
+          toast.success('Product removed from saved items');
+        } else {
+          toast.error('Failed to remove product');
+        }
+      } else {
+        // Add product to saved list
+        const response = await fetch('/api/user/saved-products', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`
+          },
+          body: JSON.stringify({ productId: product._id, source: 'Other' })
+        });
+        
+        if (response.ok) {
+          setIsSaved(true);
+          toast.success('Product saved successfully');
+        } else {
+          const data = await response.json();
+          toast.error(data.message || 'Failed to save product');
+        }
+      }
+    } catch (error) {
+      console.error('Error saving product:', error);
+      toast.error('An error occurred. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <Link href={`/products/${product._id}`} className="product-card relative">
-      <button
-        onClick={handleCompareClick}
-        className="absolute top-2 right-2 z-10 w-8 h-8 bg-white rounded-full shadow-md flex items-center justify-center hover:bg-gray-100 transition-colors"
-      >
-        {isInCompare ? (
-          <span className="text-2xl text-gray-600 leading-none mb-1">−</span>
-        ) : (
-          <span className="text-2xl text-gray-600 leading-none">+</span>
-        )}
-      </button>
+      <div className="absolute top-2 right-2 z-10 flex gap-2">
+        <button
+          onClick={handleSaveClick}
+          className="w-8 h-8 bg-white rounded-full shadow-md flex items-center justify-center hover:bg-gray-100 transition-colors"
+          disabled={isLoading}
+        >
+          <svg 
+            xmlns="http://www.w3.org/2000/svg" 
+            width="16" 
+            height="16" 
+            viewBox="0 0 24 24" 
+            fill={isSaved ? "#FF7559" : "none"} 
+            stroke={isSaved ? "#FF7559" : "currentColor"} 
+            strokeWidth="2" 
+            strokeLinecap="round" 
+            strokeLinejoin="round"
+            className={isLoading ? "opacity-50" : ""}
+          >
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+          </svg>
+        </button>
+        
+        <button
+          onClick={handleCompareClick}
+          className="w-8 h-8 bg-white rounded-full shadow-md flex items-center justify-center hover:bg-gray-100 transition-colors"
+        >
+          {isInCompare ? (
+            <span className="text-2xl text-gray-600 leading-none mb-1">−</span>
+          ) : (
+            <span className="text-2xl text-gray-600 leading-none">+</span>
+          )}
+        </button>
+      </div>
 
       <div className="product-image-container">
         <Image

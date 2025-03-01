@@ -24,6 +24,7 @@
     "nodemailer": "^6.9.16",
     "react": "latest",
     "react-dom": "latest",
+    "react-hot-toast": "^2.5.2",
     "react-responsive-carousel": "^3.2.23",
     "recharts": "^2.15.1",
     "supports-color": "^8.1.1"

@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Cookies from 'js-cookie';
+import { toast } from 'react-hot-toast';
 
 interface SaveProductButtonProps {
   productId: string;
@@ -15,8 +17,8 @@ export default function SaveProductButton({ productId, source = 'Other' }: SaveP
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   
   useEffect(() => {
-    // Check if user is logged in
-    const token = localStorage.getItem('token');
+    // Check if user is logged in (check both localStorage and cookies)
+    const token = localStorage.getItem('token') || Cookies.get('token');
     setIsLoggedIn(!!token);
     
     // Check if product is already saved
@@ -47,15 +49,16 @@ export default function SaveProductButton({ productId, source = 'Other' }: SaveP
   
   const handleSaveClick = async () => {
     if (!isLoggedIn) {
-      // Redirect to login
-      router.push('/login');
+      // Redirect to login with return URL
+      const returnUrl = `/products/${productId}`;
+      router.push(`/login?returnUrl=${encodeURIComponent(returnUrl)}`);
       return;
     }
     
     setIsLoading(true);
     
     try {
-      const token = localStorage.getItem('token');
+      const token = localStorage.getItem('token') || Cookies.get('token');
       
       if (isSaved) {
         // Remove product from saved list
@@ -68,6 +71,9 @@ export default function SaveProductButton({ productId, source = 'Other' }: SaveP
         
         if (response.ok) {
           setIsSaved(false);
+          toast.success('Product removed from saved items');
+        } else {
+          toast.error('Failed to remove product');
         }
       } else {
         // Add product to saved list
@@ -82,10 +88,15 @@ export default function SaveProductButton({ productId, source = 'Other' }: SaveP
         
         if (response.ok) {
           setIsSaved(true);
+          toast.success('Product saved successfully');
+        } else {
+          const data = await response.json();
+          toast.error(data.message || 'Failed to save product');
         }
       }
     } catch (error) {
       console.error('Error saving product:', error);
+      toast.error('An error occurred. Please try again.');
     } finally {
       setIsLoading(false);
     }
@@ -114,7 +125,7 @@ export default function SaveProductButton({ productId, source = 'Other' }: SaveP
       >
         <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
       </svg>
-      {isSaved ? 'Saved' : 'Save Product'}
+      {isLoading ? 'Processing...' : (isSaved ? 'Saved' : 'Save Product')}
     </button>
   );
 } 

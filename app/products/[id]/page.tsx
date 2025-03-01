@@ -2,6 +2,7 @@
 import Modal from "@/components/Modal";
 import PriceStats from "@/components/PriceStats";
 import ProductCard from "@/components/ProductCard";
+import ProductActions from "@/components/ProductActions";
 import { getProductById, getSimilarProducts } from "@/lib/actions"
 import { formatNumber } from "@/lib/utils";
 import { Product } from "@/types";
@@ -60,38 +61,11 @@ export default async function ProductDetails({ params }: Props) {
                 </Link>
               </div>
 
-              <div className="flex items-center gap-2">
-                <div className="product-hearts">
-                  <Image 
-                    src="/assets/icons/red-heart.svg"
-                    alt="heart"
-                    width={20}
-                    height={20}
-                  />
-
-                  <p className="text-base font-semibold text-[#D46F77]">
-                    {product.reviewsCount}
-                  </p>
-                </div>
-
-                <div className="p-2 bg-white-200 rounded-10">
-                  <Image 
-                    src="/assets/icons/bookmark.svg"
-                    alt="bookmark"
-                    width={20}
-                    height={20}
-                  />
-                </div>
-
-                <div className="p-2 bg-white-200 rounded-10">
-                  <Image 
-                    src="/assets/icons/share.svg"
-                    alt="share"
-                    width={20}
-                    height={20}
-                  />
-                </div>
-              </div>
+              <ProductActions 
+                productId={productId} 
+                initialLikes={product.reviewsCount || 0} 
+                productUrl={product.url}
+              />
             </div>
 
             <div className="product-info">
@@ -148,8 +122,15 @@ export default async function ProductDetails({ params }: Props) {
               <PriceHistoryChart priceHistory={product.priceHistory} />
             </div>
 
-            <Modal productId={productId} />
+            <div className="flex gap-4 mt-6">
+              {/* Modal component moved below */}
+            </div>
           </div>
+        </div>
+
+        {/* Add the Track button (Modal) below the price history section */}
+        <div className="flex justify-center my-8">
+          <Modal productId={productId} />
         </div>
 
         <div className="flex flex-col gap-5">
