@@ -1,20 +1,17 @@
-import Navbar from '@/components/Navbar'
 import './globals.css'
 import type { Metadata } from 'next'
-import { Inter, Space_Grotesk } from 'next/font/google'
-import { CompareProvider } from '@/lib/context/CompareContext'
+import { Inter } from 'next/font/google'
+import Navbar from '@/components/Navbar'
 import BottomCompareBar from '@/components/BottomCompareBar'
 import { Toaster } from 'react-hot-toast'
+import { CompareProvider } from '@/lib/context/CompareContext'
+import { SavedProductsProvider } from '@/lib/context/SavedProductsContext'
 
 const inter = Inter({ subsets: ['latin'] })
-const spaceGrotesk = Space_Grotesk({ 
-  subsets: ['latin'], 
-  weight: ['300', '400', '500', '600', '700']
- })
 
 export const metadata: Metadata = {
-  title: 'Pricewise',
-  description: 'Track product prices effortlessly and save money on your online shopping.',
+  title: 'PriceWise - Track Product Prices',
+  description: 'Track product prices across multiple e-commerce sites and get notified of price drops.',
 }
 
 export default function RootLayout({
@@ -26,12 +23,14 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <CompareProvider>
-          <main className="max-w-10xl mx-auto pb-20">
+          <SavedProductsProvider>
+            <Toaster position="top-center" />
             <Navbar />
-            {children}
+            <main className="pt-24 pb-20 max-w-[1440px] mx-auto min-h-screen">
+              {children}
+            </main>
             <BottomCompareBar />
-          </main>
-          <Toaster position="top-center" />
+          </SavedProductsProvider>
         </CompareProvider>
       </body>
     </html>

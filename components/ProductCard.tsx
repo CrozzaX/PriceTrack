@@ -9,6 +9,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
 import { toast } from 'react-hot-toast';
+import { useSavedProducts } from '@/lib/context/SavedProductsContext';
 
 interface Props {
   product: Product;
@@ -17,6 +18,7 @@ interface Props {
 const ProductCard = ({ product }: Props) => {
   const router = useRouter();
   const { compareProducts, addToCompare, removeFromCompare } = useCompare();
+  const { checkIfProductIsSaved, saveProduct, removeProduct } = useSavedProducts();
   const isInCompare = compareProducts.some(p => p._id === product._id);
   const [isSaved, setIsSaved] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -33,31 +35,11 @@ const ProductCard = ({ product }: Props) => {
     const token = localStorage.getItem('token') || Cookies.get('token');
     setIsLoggedIn(!!token);
     
-    // Check if product is already saved
-    const checkSavedStatus = async () => {
-      if (!token) return;
-      
-      try {
-        const response = await fetch('/api/user/saved-products', {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          const isProductSaved = data.products.some(
-            (p: any) => p._id === product._id
-          );
-          setIsSaved(isProductSaved);
-        }
-      } catch (error) {
-        console.error('Error checking saved status:', error);
-      }
-    };
-    
-    checkSavedStatus();
-  }, [product._id]);
+    // Check if product is already saved using the context
+    if (token && product._id) {
+      setIsSaved(checkIfProductIsSaved(product._id));
+    }
+  }, [product._id, checkIfProductIsSaved]);
 
   const handleCompareClick = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -80,43 +62,31 @@ const ProductCard = ({ product }: Props) => {
       return;
     }
     
+    if (!product._id) {
+      toast.error('Invalid product');
+      return;
+    }
+    
     setIsLoading(true);
     
     try {
-      const token = localStorage.getItem('token') || Cookies.get('token');
-      
       if (isSaved) {
-        // Remove product from saved list
-        const response = await fetch(`/api/user/saved-products/${product._id}`, {
-          method: 'DELETE',
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
-        
-        if (response.ok) {
+        // Remove product from saved list using context
+        const success = await removeProduct(product._id);
+        if (success) {
           setIsSaved(false);
           toast.success('Product removed from saved items');
         } else {
           toast.error('Failed to remove product');
         }
       } else {
-        // Add product to saved list
-        const response = await fetch('/api/user/saved-products', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({ productId: product._id, source: 'Other' })
-        });
-        
-        if (response.ok) {
+        // Add product to saved list using context
+        const success = await saveProduct(product._id, 'ProductCard');
+        if (success) {
           setIsSaved(true);
           toast.success('Product saved successfully');
         } else {
-          const data = await response.json();
-          toast.error(data.message || 'Failed to save product');
+          toast.error('Failed to save product');
         }
       }
     } catch (error) {

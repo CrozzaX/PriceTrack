@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
 import { toast } from 'react-hot-toast';
+import { useSavedProducts } from '@/lib/context/SavedProductsContext';
 
 interface ProductActionsProps {
   productId: string;
@@ -13,6 +14,7 @@ interface ProductActionsProps {
 
 export default function ProductActions({ productId, initialLikes = 0, productUrl }: ProductActionsProps) {
   const router = useRouter();
+  const { checkIfProductIsSaved, saveProduct, removeProduct } = useSavedProducts();
   // Always start with zero likes regardless of initialLikes
   const [likes, setLikes] = useState(0);
   const [isLiked, setIsLiked] = useState(false);
@@ -25,28 +27,10 @@ export default function ProductActions({ productId, initialLikes = 0, productUrl
     const token = localStorage.getItem('token') || Cookies.get('token');
     setIsLoggedIn(!!token);
     
-    // Check if product is already saved
-    const checkSavedStatus = async () => {
-      if (!token) return;
-      
-      try {
-        const response = await fetch('/api/user/saved-products', {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
-        
-        if (response.ok) {
-          const data = await response.json();
-          const isProductSaved = data.products.some(
-            (p: any) => p._id === productId
-          );
-          setIsSaved(isProductSaved);
-        }
-      } catch (error) {
-        console.error('Error checking saved status:', error);
-      }
-    };
+    // Check if product is already saved using the context
+    if (token) {
+      setIsSaved(checkIfProductIsSaved(productId));
+    }
     
     // Check if user has liked this product (could be stored in localStorage for simplicity)
     const likedProducts = JSON.parse(localStorage.getItem('likedProducts') || '[]');
@@ -54,9 +38,7 @@ export default function ProductActions({ productId, initialLikes = 0, productUrl
       setIsLiked(true);
       setLikes(1); // If the user has liked it before, set to 1
     }
-    
-    checkSavedStatus();
-  }, [productId]);
+  }, [productId, checkIfProductIsSaved]);
 
   const handleLikeClick = () => {
     if (!isLoggedIn) {
@@ -101,40 +83,23 @@ export default function ProductActions({ productId, initialLikes = 0, productUrl
     setIsLoading(true);
     
     try {
-      const token = localStorage.getItem('token') || Cookies.get('token');
-      
       if (isSaved) {
-        // Remove product from saved list
-        const response = await fetch(`/api/user/saved-products/${productId}`, {
-          method: 'DELETE',
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
-        
-        if (response.ok) {
+        // Remove product from saved list using context
+        const success = await removeProduct(productId);
+        if (success) {
           setIsSaved(false);
           toast.success('Product removed from saved items');
         } else {
           toast.error('Failed to remove product');
         }
       } else {
-        // Add product to saved list
-        const response = await fetch('/api/user/saved-products', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`
-          },
-          body: JSON.stringify({ productId, source: 'Other' })
-        });
-        
-        if (response.ok) {
+        // Add product to saved list using context
+        const success = await saveProduct(productId, 'ProductDetail');
+        if (success) {
           setIsSaved(true);
           toast.success('Product saved successfully');
         } else {
-          const data = await response.json();
-          toast.error(data.message || 'Failed to save product');
+          toast.error('Failed to save product');
         }
       }
     } catch (error) {

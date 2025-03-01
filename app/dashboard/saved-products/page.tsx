@@ -4,59 +4,20 @@ import { useState, useEffect } from 'react';
 import SavedProductCard from '@/components/dashboard/SavedProductCard';
 import Link from 'next/link';
 import { toast } from 'react-hot-toast';
-import Cookies from 'js-cookie';
+import { useSavedProducts } from '@/lib/context/SavedProductsContext';
 
 export default function SavedProductsPage() {
-  const [savedProducts, setSavedProducts] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState('');
+  const { savedProducts, isLoading, error, removeProduct, refreshSavedProducts } = useSavedProducts();
 
   useEffect(() => {
-    const fetchSavedProducts = async () => {
-      try {
-        setIsLoading(true);
-        const token = localStorage.getItem('token') || Cookies.get('token');
-        if (!token) return;
-
-        const response = await fetch('/api/user/saved-products', {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setSavedProducts(data.products);
-        } else {
-          const error = await response.json();
-          setError(error.message || 'Failed to fetch saved products');
-        }
-      } catch (error) {
-        console.error('Error fetching saved products:', error);
-        setError('An error occurred while fetching your saved products');
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    fetchSavedProducts();
-  }, []);
+    // Refresh saved products when the page loads
+    refreshSavedProducts();
+  }, [refreshSavedProducts]);
 
   const handleRemoveProduct = async (productId: string) => {
     try {
-      const token = localStorage.getItem('token') || Cookies.get('token');
-      if (!token) return;
-
-      const response = await fetch(`/api/user/saved-products/${productId}`, {
-        method: 'DELETE',
-        headers: {
-          Authorization: `Bearer ${token}`
-        }
-      });
-
-      if (response.ok) {
-        // Remove the product from the state
-        setSavedProducts((prev) => prev.filter((product: any) => product._id !== productId));
+      const success = await removeProduct(productId);
+      if (success) {
         toast.success('Product removed from saved items');
       } else {
         toast.error('Failed to remove product');

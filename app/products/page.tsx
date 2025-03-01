@@ -15,7 +15,7 @@ export default async function ProductsPage() {
   });
 
   return (
-    <div className="container min-h-screen flex flex-col pt-20">
+    <div className="w-full min-h-screen flex flex-col pt-20">
       <section className="px-6 md:px-20 py-24">
         <div className="flex max-xl:flex-col gap-16">
           <div className="flex flex-col justify-center"> 
@@ -48,7 +48,7 @@ export default async function ProductsPage() {
       <section className="trending-section">
         <h2 className="section-text">Trending Products</h2>
 
-        <div className="flex flex-wrap gap-x-8 gap-y-16">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {sortedProducts?.map((product) => (
             <div key={product._id} className="product-wrapper">
               <ProductCard product={product} />
