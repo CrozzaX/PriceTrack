@@ -22,6 +22,28 @@ export const userSchema = new mongoose.Schema({
     minlength: [8, 'Password must be at least 8 characters long'],
     maxlength: [1024, 'Password cannot exceed 1024 characters']
   },
+  profileImage: {
+    type: String,
+    default: ''
+  },
+  savedProducts: [
+    {
+      productId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'Product',
+        required: true
+      },
+      source: {
+        type: String,
+        enum: ['Amazon', 'Flipkart', 'Myntra', 'Other'],
+        default: 'Other'
+      },
+      dateAdded: {
+        type: Date,
+        default: Date.now
+      }
+    }
+  ],
   createdAt: {
     type: Date,
     default: Date.now

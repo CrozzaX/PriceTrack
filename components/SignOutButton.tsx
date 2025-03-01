@@ -1,13 +1,23 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
+import Cookies from 'js-cookie';
 
 export default function SignOutButton() {
   const router = useRouter();
 
   const handleSignOut = () => {
+    // Clear localStorage
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    
+    // Clear cookies
+    Cookies.remove('token', { path: '/' });
+    
+    // Trigger storage event for other components
+    window.dispatchEvent(new Event('storage'));
+    
+    // Redirect to home page
     router.push('/');
   };
 
