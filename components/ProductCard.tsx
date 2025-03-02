@@ -102,8 +102,9 @@ const ProductCard = ({ product }: Props) => {
       <div className="absolute top-2 right-2 z-10 flex gap-2">
         <button
           onClick={handleSaveClick}
-          className="w-8 h-8 bg-white rounded-full shadow-md flex items-center justify-center hover:bg-gray-100 transition-colors"
+          className="w-9 h-9 bg-white rounded-full shadow-md flex items-center justify-center hover:bg-gray-50 transition-all duration-300 transform hover:scale-110 hover:shadow-lg"
           disabled={isLoading}
+          aria-label={isSaved ? "Remove from saved" : "Save product"}
         >
           <svg 
             xmlns="http://www.w3.org/2000/svg" 
@@ -115,7 +116,7 @@ const ProductCard = ({ product }: Props) => {
             strokeWidth="2" 
             strokeLinecap="round" 
             strokeLinejoin="round"
-            className={isLoading ? "opacity-50" : ""}
+            className={`transition-all duration-300 ${isLoading ? "opacity-50" : ""} ${isSaved ? "animate-pulse" : ""}`}
           >
             <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
           </svg>
@@ -123,22 +124,50 @@ const ProductCard = ({ product }: Props) => {
         
         <button
           onClick={handleCompareClick}
-          className="w-8 h-8 bg-white rounded-full shadow-md flex items-center justify-center hover:bg-gray-100 transition-colors"
+          className="w-9 h-9 bg-white rounded-full shadow-md flex items-center justify-center hover:bg-gray-50 transition-all duration-300 transform hover:scale-110 hover:shadow-lg"
+          aria-label={isInCompare ? "Remove from compare" : "Add to compare"}
         >
           {isInCompare ? (
-            <span className="text-2xl text-gray-600 leading-none mb-1">−</span>
+            <svg 
+              xmlns="http://www.w3.org/2000/svg" 
+              width="16" 
+              height="16" 
+              viewBox="0 0 24 24" 
+              fill="none" 
+              stroke="#FF7559" 
+              strokeWidth="2" 
+              strokeLinecap="round" 
+              strokeLinejoin="round"
+              className="transition-transform duration-300"
+            >
+              <path d="M5 12h14"></path>
+            </svg>
           ) : (
-            <span className="text-2xl text-gray-600 leading-none">+</span>
+            <svg 
+              xmlns="http://www.w3.org/2000/svg" 
+              width="16" 
+              height="16" 
+              viewBox="0 0 24 24" 
+              fill="none" 
+              stroke="currentColor" 
+              strokeWidth="2" 
+              strokeLinecap="round" 
+              strokeLinejoin="round"
+              className="transition-transform duration-300"
+            >
+              <path d="M12 5v14M5 12h14"></path>
+            </svg>
           )}
         </button>
       </div>
 
-      <div className="product-image-container">
+      <div className="product-image-container group">
+        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent skeleton-shine"></div>
         <Image
           src={product.image}
           alt={product.title}
           fill
-          className="object-contain p-2"
+          className="object-contain p-2 group-hover:scale-105 transition-transform duration-500"
           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
         />
       </div>

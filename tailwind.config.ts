@@ -46,11 +46,31 @@ module.exports = {
         scaleIn: {
           '0%': { transform: 'scale(0.9)' },
           '100%': { transform: 'scale(1)' }
+        },
+        pulse: {
+          '0%, 100%': { transform: 'scale(1)' },
+          '50%': { transform: 'scale(1.05)' }
+        },
+        bounce: {
+          '0%, 100%': { transform: 'translateY(0)' },
+          '50%': { transform: 'translateY(-10px)' }
+        },
+        slideUp: {
+          '0%': { transform: 'translateY(20px)', opacity: '0' },
+          '100%': { transform: 'translateY(0)', opacity: '1' }
+        },
+        slideRight: {
+          '0%': { transform: 'translateX(-20px)', opacity: '0' },
+          '100%': { transform: 'translateX(0)', opacity: '1' }
         }
       },
       animation: {
         fadeIn: 'fadeIn 0.8s ease forwards',
-        scaleIn: 'scaleIn 0.3s ease forwards'
+        scaleIn: 'scaleIn 0.3s ease forwards',
+        pulse: 'pulse 2s ease-in-out infinite',
+        bounce: 'bounce 2s ease-in-out infinite',
+        slideUp: 'slideUp 0.5s ease forwards',
+        slideRight: 'slideRight 0.5s ease forwards'
       }
     },
   },
