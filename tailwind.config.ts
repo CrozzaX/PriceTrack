@@ -62,6 +62,38 @@ module.exports = {
         slideRight: {
           '0%': { transform: 'translateX(-20px)', opacity: '0' },
           '100%': { transform: 'translateX(0)', opacity: '1' }
+        },
+        smoothFadeIn: {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' }
+        },
+        smoothFadeOut: {
+          '0%': { opacity: '1' },
+          '100%': { opacity: '0' }
+        },
+        smoothSlideUp: {
+          '0%': { transform: 'translateY(10px)', opacity: '0' },
+          '100%': { transform: 'translateY(0)', opacity: '1' }
+        },
+        smoothSlideDown: {
+          '0%': { transform: 'translateY(-10px)', opacity: '0' },
+          '100%': { transform: 'translateY(0)', opacity: '1' }
+        },
+        smoothSlideLeft: {
+          '0%': { transform: 'translateX(10px)', opacity: '0' },
+          '100%': { transform: 'translateX(0)', opacity: '1' }
+        },
+        smoothSlideRight: {
+          '0%': { transform: 'translateX(-10px)', opacity: '0' },
+          '100%': { transform: 'translateX(0)', opacity: '1' }
+        },
+        smoothScale: {
+          '0%': { transform: 'scale(0.98)', opacity: '0' },
+          '100%': { transform: 'scale(1)', opacity: '1' }
+        },
+        smoothScaleDown: {
+          '0%': { transform: 'scale(1.02)', opacity: '0' },
+          '100%': { transform: 'scale(1)', opacity: '1' }
         }
       },
       animation: {
@@ -70,7 +102,15 @@ module.exports = {
         pulse: 'pulse 2s ease-in-out infinite',
         bounce: 'bounce 2s ease-in-out infinite',
         slideUp: 'slideUp 0.5s ease forwards',
-        slideRight: 'slideRight 0.5s ease forwards'
+        slideRight: 'slideRight 0.5s ease forwards',
+        smoothFadeIn: 'smoothFadeIn 0.7s cubic-bezier(0.4, 0, 0.2, 1) forwards',
+        smoothFadeOut: 'smoothFadeOut 0.5s cubic-bezier(0.4, 0, 0.2, 1) forwards',
+        smoothSlideUp: 'smoothSlideUp 0.7s cubic-bezier(0.4, 0, 0.2, 1) forwards',
+        smoothSlideDown: 'smoothSlideDown 0.7s cubic-bezier(0.4, 0, 0.2, 1) forwards',
+        smoothSlideLeft: 'smoothSlideLeft 0.7s cubic-bezier(0.4, 0, 0.2, 1) forwards',
+        smoothSlideRight: 'smoothSlideRight 0.7s cubic-bezier(0.4, 0, 0.2, 1) forwards',
+        smoothScale: 'smoothScale 0.7s cubic-bezier(0.4, 0, 0.2, 1) forwards',
+        smoothScaleDown: 'smoothScaleDown 0.7s cubic-bezier(0.4, 0, 0.2, 1) forwards'
       }
     },
   },

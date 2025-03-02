@@ -6,6 +6,7 @@ import { useRouter, usePathname } from 'next/navigation';
 import SignOutButton from './SignOutButton';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Cookies from 'js-cookie';
+import { motion } from 'framer-motion';
 
 const Navbar = () => {
   const router = useRouter();
@@ -124,12 +125,12 @@ const Navbar = () => {
       <header className="fixed top-0 left-0 w-full bg-white bg-opacity-90 backdrop-blur-md z-50 border-b border-gray-200">
         <nav className="flex justify-between items-center px-5 md:px-20 py-4 max-w-[1440px] mx-auto">
           <div className="flex items-center gap-2">
-            <div className="h-7 w-7 rounded-full bg-gray-200"></div>
+            <div className="h-7 w-7 rounded-full bg-gray-200 animate-pulse"></div>
             <div className="font-bold text-xl">Price<span>Wise</span></div>
           </div>
           <div className="flex items-center gap-4">
-            <div className="w-20 h-5 bg-gray-200 rounded"></div>
-            <div className="w-24 h-9 bg-gray-200 rounded-full"></div>
+            <div className="w-20 h-5 bg-gray-200 rounded animate-pulse"></div>
+            <div className="w-24 h-9 bg-gray-200 rounded-full animate-pulse"></div>
           </div>
         </nav>
       </header>
@@ -140,102 +141,196 @@ const Navbar = () => {
   const userInitial = userData?.name ? userData.name.charAt(0).toUpperCase() : '';
   
   return (
-    <header className="fixed top-0 left-0 w-full bg-white bg-opacity-90 backdrop-blur-md z-50 border-b border-gray-200">
+    <motion.header 
+      className="fixed top-0 left-0 w-full bg-white bg-opacity-90 backdrop-blur-md z-50 border-b border-gray-200"
+      initial={{ y: -100, opacity: 0 }}
+      animate={{ y: 0, opacity: 1 }}
+      transition={{ 
+        type: "spring", 
+        stiffness: 100, 
+        damping: 15,
+        duration: 0.6
+      }}
+    >
       <nav className="flex justify-between items-center px-5 md:px-20 py-4 max-w-[1440px] mx-auto">
-        <Link href="/" className="flex items-center gap-2 hover:opacity-80 transition">
-          <svg width="27" height="27" viewBox="0 0 27 27" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <Link href="/" className="flex items-center gap-2 hover:opacity-80">
+          <motion.svg 
+            width="27" 
+            height="27" 
+            viewBox="0 0 27 27" 
+            fill="none" 
+            xmlns="http://www.w3.org/2000/svg"
+            whileHover={{ rotate: 360 }}
+            transition={{ duration: 0.8, ease: "easeInOut" }}
+          >
             <path d="M13.5 26.5C20.4036 26.5 26 20.9036 26 14C26 7.09644 20.4036 1.5 13.5 1.5C6.59644 1.5 1 7.09644 1 14C1 20.9036 6.59644 26.5 13.5 26.5Z" stroke="#FF7559" strokeWidth="2"/>
             <path d="M8 14L12 18L20 10" stroke="#FF7559" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>
-          <div className="font-bold text-xl font-['Space_Grotesk']">Price<span className="text-[#FF7559]">Wise</span></div>
+          </motion.svg>
+          <motion.div 
+            className="font-bold text-xl font-['Space_Grotesk']"
+            whileHover={{ scale: 1.05 }}
+            transition={{ type: "spring", stiffness: 400, damping: 10 }}
+          >
+            Price<motion.span 
+              className="text-[#FF7559]"
+              animate={{ 
+                scale: [1, 1.1, 1],
+              }}
+              transition={{ 
+                duration: 2, 
+                repeat: Infinity,
+                repeatType: "reverse",
+                ease: "easeInOut" 
+              }}
+            >
+              Wise
+            </motion.span>
+          </motion.div>
         </Link>
 
         <div className="flex items-center gap-4">
-          <Link href="/products" className="text-gray-700 hover:text-[#FF7559] transition">
+          <NavLink href="/products" isActive={pathname === '/products'}>
             My Products
-          </Link>
+          </NavLink>
           
           {isLoggedIn && (
-            <Link 
-              href="/dashboard" 
-              prefetch={true}
-              className={`text-gray-700 hover:text-[#FF7559] transition ${
-                pathname?.startsWith('/dashboard') ? 'text-[#FF7559] font-medium' : ''
-              }`}
-            >
+            <NavLink href="/dashboard" isActive={pathname?.startsWith('/dashboard')}>
               Dashboard
-            </Link>
+            </NavLink>
           )}
           
           {isLoggedIn ? (
-            <div className="flex items-center gap-3">
+            <motion.div 
+              className="flex items-center gap-3"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ delay: 0.2, duration: 0.5 }}
+            >
               {isProfileLoading ? (
-                <div className="flex items-center justify-center w-10 h-10 rounded-full bg-[#FF7559] hover:bg-opacity-90 transition">
-                  <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full"></div>
-                </div>
-              ) : (
-                <Link 
-                  href="/dashboard/profile" 
-                  onClick={handleProfileClick}
-                  className="flex items-center justify-center w-10 h-10 rounded-full overflow-hidden bg-[#FF7559] hover:bg-opacity-90 transition text-white font-bold"
-                  title="User Profile"
+                <motion.div 
+                  className="flex items-center justify-center w-10 h-10 rounded-full bg-[#FF7559] hover:bg-opacity-90"
+                  whileHover={{ scale: 1.05 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 10 }}
                 >
-                  {userData?.profileImage ? (
-                    <Image 
-                      src={userData.profileImage} 
-                      alt="Profile" 
-                      width={40} 
-                      height={40} 
-                      className="object-cover w-full h-full"
-                      priority
-                      unoptimized={userData.profileImage.startsWith('data:')}
-                    />
-                  ) : (
-                    userInitial || (
-                      <svg 
-                        xmlns="http://www.w3.org/2000/svg" 
-                        width="20" 
-                        height="20" 
-                        viewBox="0 0 24 24" 
-                        fill="none" 
-                        stroke="currentColor" 
-                        strokeWidth="2" 
-                        strokeLinecap="round" 
-                        strokeLinejoin="round"
-                      >
-                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                        <circle cx="12" cy="7" r="4"></circle>
-                      </svg>
-                    )
-                  )}
-                </Link>
+                  <motion.div 
+                    className="h-5 w-5 border-2 border-white border-t-transparent rounded-full"
+                    animate={{ rotate: 360 }}
+                    transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                  />
+                </motion.div>
+              ) : (
+                <motion.div
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.95 }}
+                  transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                >
+                  <Link 
+                    href="/dashboard/profile" 
+                    onClick={handleProfileClick}
+                    className="flex items-center justify-center w-10 h-10 rounded-full overflow-hidden bg-[#FF7559] hover:bg-opacity-90 text-white font-bold"
+                    title="User Profile"
+                  >
+                    {userData?.profileImage ? (
+                      <Image 
+                        src={userData.profileImage} 
+                        alt="Profile" 
+                        width={40} 
+                        height={40} 
+                        className="object-cover w-full h-full"
+                        priority
+                        unoptimized={userData.profileImage.startsWith('data:')}
+                      />
+                    ) : (
+                      userInitial || (
+                        <svg 
+                          xmlns="http://www.w3.org/2000/svg" 
+                          width="20" 
+                          height="20" 
+                          viewBox="0 0 24 24" 
+                          fill="none" 
+                          stroke="currentColor" 
+                          strokeWidth="2" 
+                          strokeLinecap="round" 
+                          strokeLinejoin="round"
+                        >
+                          <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                          <circle cx="12" cy="7" r="4"></circle>
+                        </svg>
+                      )
+                    )}
+                  </Link>
+                </motion.div>
               )}
               <SignOutButton />
-            </div>
+            </motion.div>
           ) : <AuthButtons />}
         </div>
       </nav>
-    </header>
+    </motion.header>
   );
 };
+
+// NavLink component with animations
+function NavLink({ href, children, isActive }: { href: string; children: React.ReactNode; isActive: boolean }) {
+  return (
+    <Link href={href} prefetch={true}>
+      <motion.div 
+        className={`relative text-gray-700 hover:text-[#FF7559] ${isActive ? 'text-[#FF7559] font-medium' : ''}`}
+        whileHover={{ y: -2 }}
+        transition={{ type: "spring", stiffness: 400, damping: 10 }}
+      >
+        {children}
+        <motion.div 
+          className="absolute bottom-0 left-0 h-0.5 bg-[#FF7559]"
+          initial={{ width: isActive ? "100%" : "0%" }}
+          whileHover={{ width: "100%" }}
+          animate={{ width: isActive ? "100%" : "0%" }}
+          transition={{ type: "spring", stiffness: 400, damping: 25 }}
+        />
+      </motion.div>
+    </Link>
+  );
+}
 
 // Auth buttons component for login/register
 function AuthButtons() {
   return (
-    <div className="flex items-center gap-2">
-      <Link 
-        href="/login"
-        className="px-4 py-2 text-gray-700 hover:text-[#FF7559] transition"
+    <motion.div 
+      className="flex items-center gap-2"
+      initial={{ opacity: 0, x: 20 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ delay: 0.2, duration: 0.5 }}
+    >
+      <motion.div
+        whileHover={{ y: -2 }}
+        transition={{ type: "spring", stiffness: 400, damping: 10 }}
       >
-        Log In
-      </Link>
-      <Link 
-        href="/login?signup=true"
-        className="px-4 py-2 rounded-full font-semibold text-white bg-[#FF7559] hover:bg-opacity-90 transition"
+        <Link 
+          href="/login"
+          className="px-4 py-2 text-gray-700 hover:text-[#FF7559] relative group"
+        >
+          Log In
+          <motion.div 
+            className="absolute bottom-0 left-0 h-0.5 bg-[#FF7559]"
+            initial={{ width: "0%" }}
+            whileHover={{ width: "100%" }}
+            transition={{ type: "spring", stiffness: 400, damping: 25 }}
+          />
+        </Link>
+      </motion.div>
+      <motion.div
+        whileHover={{ scale: 1.05 }}
+        whileTap={{ scale: 0.95 }}
+        transition={{ type: "spring", stiffness: 400, damping: 17 }}
       >
-        Sign Up
-      </Link>
-    </div>
+        <Link 
+          href="/login?signup=true"
+          className="px-4 py-2 rounded-full font-semibold text-white bg-[#FF7559] hover:bg-opacity-90"
+        >
+          Sign Up
+        </Link>
+      </motion.div>
+    </motion.div>
   );
 }
 

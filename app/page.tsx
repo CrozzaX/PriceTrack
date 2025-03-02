@@ -1,108 +1,188 @@
-import Script from 'next/script';
-import Head from 'next/head';
-import AuthUI from '@/components/AuthUI';
+'use client';
+
+import Link from 'next/link';
+import { motion } from 'framer-motion';
 
 export default function Home() {
+  // Animation variants
+  const fadeInUp = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { 
+      opacity: 1, 
+      y: 0,
+      transition: {
+        duration: 0.6,
+        ease: [0.22, 1, 0.36, 1]
+      }
+    }
+  };
+
+  const staggerContainer = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.2
+      }
+    }
+  };
+
+  const fadeInScale = {
+    hidden: { opacity: 0, scale: 0.95 },
+    visible: { 
+      opacity: 1, 
+      scale: 1,
+      transition: {
+        type: "spring",
+        stiffness: 260,
+        damping: 20
+      }
+    }
+  };
+
   return (
-    <>
-      <Head>
-        <title>PriceWise - Smart Price Tracking</title>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
-      </Head>
-
-      <div className="container">
-        <nav className="navbar">
-          <div className="nav-content">
-            <a href="/" className="logo">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <circle cx="12" cy="12" r="12" fill="#FF7559" fillOpacity="0.1"/>
-                <path d="M8 12L10.5 14.5L16 9" stroke="#FF7559" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
-              <span className="logo-text">Price<span>Wise</span></span>
-            </a>
+    <div className="w-full">
+      <div className="container mx-auto px-4">
+        <main className="py-10">
+          <motion.div 
+            className="text-center max-w-3xl mx-auto"
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ 
+              duration: 0.8, 
+              delay: 0.3,
+              ease: [0.22, 1, 0.36, 1]
+            }}
+          >
+            <motion.h1 
+              className="text-4xl font-bold mb-6"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.4, duration: 0.6 }}
+            >
+              Track Prices, <motion.span 
+                className="text-[#FF7559]"
+                animate={{ 
+                  scale: [1, 1.05, 1],
+                }}
+                transition={{ 
+                  duration: 2, 
+                  repeat: Infinity,
+                  repeatType: "reverse",
+                  ease: "easeInOut" 
+                }}
+              >
+                Save Money
+              </motion.span>
+            </motion.h1>
             
-            <div className="nav-links">
-              <a href="#features" className="nav-link">Features</a>
-              <a href="#how-it-works" className="nav-link">How it Works</a>
-              <a href="#pricing" className="nav-link">Pricing</a>
-              <a href="#faq" className="nav-link">FAQ</a>
-            </div>
-            
-            <AuthUI />
-          </div>
-        </nav>
-
-        <main className="main-content">
-          <div className="hero-content">
-            <p className="hero-description">
+            <motion.p 
+              className="text-lg mb-8"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.5, duration: 0.8 }}
+            >
               Track product prices across all major online retailers. Get notified when prices drop
               and save money on your favorite products with our powerful price tracking tool.
-            </p>
+            </motion.p>
 
-            <a href="/products" className="btn btn-get-started">Get Started</a>
-          </div>
+            <motion.div
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.7, duration: 0.5 }}
+            >
+              <Link href="/products" className="bg-[#FF7559] text-white px-6 py-3 rounded-lg hover:bg-[#E56A50] transition-colors">
+                Get Started
+              </Link>
+            </motion.div>
+          </motion.div>
 
-          <section className="features-section" id="features">
-            <h2 className="features-title">Why Choose <span>PriceWise</span></h2>
-            <div className="features-grid">
-              <div className="feature-card">
-                <div className="feature-icon">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 6V18M12 6L7 11M12 6L17 11" stroke="#FF7559" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+          <section className="mt-20 features-section">
+            <motion.h2 
+              className="text-3xl font-bold text-center mb-10"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true, amount: 0.3 }}
+              transition={{ duration: 0.6 }}
+            >
+              Why Choose <span className="text-[#FF7559]">PriceWise</span>
+            </motion.h2>
+            
+            <motion.div 
+              className="grid grid-cols-1 md:grid-cols-3 gap-8"
+              variants={staggerContainer}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, amount: 0.1 }}
+            >
+              <motion.div 
+                className="bg-white p-6 rounded-xl shadow-sm"
+                variants={fadeInScale}
+                whileHover={{ 
+                  y: -10, 
+                  boxShadow: "0 10px 25px -5px rgba(255, 117, 89, 0.15), 0 10px 10px -5px rgba(255, 117, 89, 0.1)" 
+                }}
+              >
+                <motion.div 
+                  className="mb-4 text-[#FF7559]"
+                  whileHover={{ rotate: 10, scale: 1.1 }}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path>
                   </svg>
-                </div>
-                <h3 className="feature-title">Real-time Price Alerts</h3>
-                <p className="feature-description">
-                  Get instant notifications when prices drop on the products you're tracking, so you never miss a deal.
-                </p>
-              </div>
-
-              <div className="feature-card">
-                <div className="feature-icon">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M8 12H16M8 12C8 14.2091 9.79086 16 12 16C14.2091 16 16 14.2091 16 12M8 12C8 9.79086 9.79086 8 12 8C14.2091 8 16 9.79086 16 12M22 12C22 17.5228 17.5228 22 12 22C6.47715 22 2 17.5228 2 12C2 6.47715 6.47715 2 12 2C17.5228 2 22 6.47715 22 12Z" stroke="#FF7559" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </motion.div>
+                <h3 className="text-xl font-semibold mb-3">Real-time Price Tracking</h3>
+                <p>Monitor prices across multiple e-commerce platforms in real-time.</p>
+              </motion.div>
+              
+              <motion.div 
+                className="bg-white p-6 rounded-xl shadow-sm"
+                variants={fadeInScale}
+                whileHover={{ 
+                  y: -10, 
+                  boxShadow: "0 10px 25px -5px rgba(255, 117, 89, 0.15), 0 10px 10px -5px rgba(255, 117, 89, 0.1)" 
+                }}
+              >
+                <motion.div 
+                  className="mb-4 text-[#FF7559]"
+                  whileHover={{ rotate: -10, scale: 1.1 }}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M6 8.5a6.5 6.5 0 1 1 13 0c0 6-9 11-9 11s-9-5-9-11a6.5 6.5 0 0 1 5-6.3"></path>
+                    <path d="M12 8.5V13"></path>
+                    <path d="M12 16v.01"></path>
                   </svg>
-                </div>
-                <h3 className="feature-title">Price History Charts</h3>
-                <p className="feature-description">
-                  View detailed price history charts to identify patterns and determine the best time to buy.
-                </p>
-              </div>
-
-              <div className="feature-card">
-                <div className="feature-icon">
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M16 8V16M12 11V16M8 14V16M4 20H20C21.1046 20 22 19.1046 22 18V6C22 4.89543 21.1046 4 20 4H4C2.89543 4 2 4.89543 2 6V18C2 19.1046 2.89543 20 4 20Z" stroke="#FF7559" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </motion.div>
+                <h3 className="text-xl font-semibold mb-3">Price Drop Alerts</h3>
+                <p>Get instant notifications when prices drop on your favorite products.</p>
+              </motion.div>
+              
+              <motion.div 
+                className="bg-white p-6 rounded-xl shadow-sm"
+                variants={fadeInScale}
+                whileHover={{ 
+                  y: -10, 
+                  boxShadow: "0 10px 25px -5px rgba(255, 117, 89, 0.15), 0 10px 10px -5px rgba(255, 117, 89, 0.1)" 
+                }}
+              >
+                <motion.div 
+                  className="mb-4 text-[#FF7559]"
+                  whileHover={{ rotate: 10, scale: 1.1 }}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M3 3v18h18"></path>
+                    <path d="m19 9-5 5-4-4-3 3"></path>
                   </svg>
-                </div>
-                <h3 className="feature-title">Product Comparison</h3>
-                <p className="feature-description">
-                  Compare prices and features across multiple products to make informed purchase decisions.
-                </p>
-              </div>
-            </div>
+                </motion.div>
+                <h3 className="text-xl font-semibold mb-3">Price History Charts</h3>
+                <p>View detailed price history to make informed purchasing decisions.</p>
+              </motion.div>
+            </motion.div>
           </section>
         </main>
       </div>
-
-      <Script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js" strategy="beforeInteractive" />
-      <Script id="gsap-animations">
-        {`
-          document.addEventListener('DOMContentLoaded', () => {
-            // Navbar scroll effect
-            window.addEventListener('scroll', () => {
-              const navbar = document.querySelector('.navbar');
-              if (window.scrollY > 10) {
-                navbar.classList.add('scrolled');
-              } else {
-                navbar.classList.remove('scrolled');
-              }
-            });
-          });
-        `}
-      </Script>
-    </>
+    </div>
   );
 }

@@ -6,6 +6,7 @@ import BottomCompareBar from '@/components/BottomCompareBar'
 import { Toaster } from 'react-hot-toast'
 import { CompareProvider } from '@/lib/context/CompareContext'
 import { SavedProductsProvider } from '@/lib/context/SavedProductsContext'
+import PageTransition from '@/components/PageTransition'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -26,8 +27,10 @@ export default function RootLayout({
           <SavedProductsProvider>
             <Toaster position="top-center" />
             <Navbar />
-            <main className="pt-24 pb-20 max-w-[1440px] mx-auto min-h-screen">
-              {children}
+            <main className="pt-0 pb-20 px-1 md:px-15 max-w-[1440px] mx-auto min-h-screen">
+              <PageTransition>
+                {children}
+              </PageTransition>
             </main>
             <BottomCompareBar />
           </SavedProductsProvider>

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { connectToAuthDB } from '@/lib/mongoose/auth';
 import { connectToDB } from '@/lib/mongoose';
 import { verifyToken } from '@/lib/utils/auth';
+import Product from '@/lib/models/product.model';
 
 interface SavedProduct {
   productId: any; // Using 'any' for mongoose ObjectId
@@ -34,8 +35,6 @@ export async function GET(req: NextRequest) {
     
     // Connect to the products database
     await connectToDB();
-    const mongoose = await import('mongoose');
-    const Product = mongoose.default.models.Product;
     
     // Get product IDs from savedProducts
     const productIds = user.savedProducts.map((item: SavedProduct) => item.productId);
@@ -92,10 +91,10 @@ export async function POST(req: NextRequest) {
       );
     }
     
-    // Verify product exists
+    // Connect to the products database
     await connectToDB();
-    const mongoose = await import('mongoose');
-    const Product = mongoose.default.models.Product;
+    
+    // Verify product exists
     const product = await Product.findById(productId);
     
     if (!product) {
