@@ -27,7 +27,7 @@ export default function RootLayout({
           <SavedProductsProvider>
             <Toaster position="top-center" />
             <Navbar />
-            <main className="pt-0 pb-20 px-1 md:px-15 max-w-[1440px] mx-auto min-h-screen">
+            <main className="pt-20 pb-20 px-1 md:px-15 max-w-[1440px] mx-auto min-h-screen">
               <PageTransition>
                 {children}
               </PageTransition>
