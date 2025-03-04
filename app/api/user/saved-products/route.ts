@@ -82,11 +82,21 @@ export async function POST(req: NextRequest) {
     const User = authConn.model('User');
     
     // Parse request body
-    const { productId, source = 'Other' } = await req.json();
+    const body = await req.json();
+    const { productId, source = 'Other' } = body;
     
     if (!productId) {
       return NextResponse.json(
         { message: 'Product ID is required' },
+        { status: 400 }
+      );
+    }
+
+    // Validate source value
+    const validSources = ['Amazon', 'Flipkart', 'Myntra', 'ProductCard', 'Other'];
+    if (!validSources.includes(source)) {
+      return NextResponse.json(
+        { message: 'Invalid source value' },
         { status: 400 }
       );
     }
@@ -123,24 +133,39 @@ export async function POST(req: NextRequest) {
     }
     
     // Add product to savedProducts
-    user.savedProducts.push({
+    const savedProduct = {
       productId,
       source,
       dateAdded: new Date()
-    });
+    };
+    
+    user.savedProducts.push(savedProduct);
     
     await user.save();
     
     return NextResponse.json({ 
       message: 'Product saved successfully',
-      savedProduct: {
-        productId,
-        source,
-        dateAdded: new Date()
-      }
+      savedProduct
     });
-  } catch (error) {
+  } catch (error: any) {
     console.error('Error in saved products POST route:', error);
+    
+    // Handle mongoose validation errors
+    if (error.name === 'ValidationError') {
+      return NextResponse.json(
+        { message: 'Invalid data provided', errors: error.errors },
+        { status: 400 }
+      );
+    }
+    
+    // Handle mongoose cast errors (invalid ObjectId)
+    if (error.name === 'CastError') {
+      return NextResponse.json(
+        { message: 'Invalid product ID format' },
+        { status: 400 }
+      );
+    }
+    
     return NextResponse.json(
       { message: 'Server error saving product' },
       { status: 500 }

@@ -35,7 +35,7 @@ export const userSchema = new mongoose.Schema({
       },
       source: {
         type: String,
-        enum: ['Amazon', 'Flipkart', 'Myntra', 'Other'],
+        enum: ['Amazon', 'Flipkart', 'Myntra', 'ProductCard', 'Other'],
         default: 'Other'
       },
       dateAdded: {

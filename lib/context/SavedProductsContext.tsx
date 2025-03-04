@@ -2,9 +2,17 @@
 
 import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
 import Cookies from 'js-cookie';
+import { Product } from '@/types';
+
+interface SavedProduct extends Product {
+  savedInfo?: {
+    dateAdded: Date;
+    source: 'Amazon' | 'Flipkart' | 'Myntra' | 'ProductCard' | 'Other';
+  };
+}
 
 interface SavedProductsContextType {
-  savedProducts: any[];
+  savedProducts: SavedProduct[];
   isLoading: boolean;
   error: string | null;
   checkIfProductIsSaved: (productId: string) => boolean;
@@ -17,7 +25,7 @@ interface SavedProductsContextType {
 const SavedProductsContext = createContext<SavedProductsContextType | undefined>(undefined);
 
 export function SavedProductsProvider({ children }: { children: ReactNode }) {
-  const [savedProducts, setSavedProducts] = useState<any[]>([]);
+  const [savedProducts, setSavedProducts] = useState<SavedProduct[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<number>(0);
@@ -83,7 +91,10 @@ export function SavedProductsProvider({ children }: { children: ReactNode }) {
   const saveProduct = useCallback(async (productId: string, source: string = 'Other') => {
     try {
       const token = localStorage.getItem('token') || Cookies.get('token');
-      if (!token) return false;
+      if (!token) {
+        setError('Authentication required');
+        return false;
+      }
 
       const response = await fetch('/api/user/saved-products', {
         method: 'POST',
@@ -94,21 +105,24 @@ export function SavedProductsProvider({ children }: { children: ReactNode }) {
         body: JSON.stringify({ productId, source })
       });
 
+      const data = await response.json();
+
       if (response.ok) {
-        // Get the product details from the response if available
-        const data = await response.json();
-        if (data.product) {
-          setSavedProducts(prev => [...prev, data.product]);
-        } else {
-          // If product details not in response, refresh the list
-          fetchSavedProducts();
+        if (data.savedProduct) {
+          // Update the local state with the new saved product
+          await fetchSavedProducts(); // Refresh the entire list to ensure consistency
         }
         setLastUpdated(Date.now());
+        setError(null);
         return true;
+      } else {
+        setError(data.message || 'Failed to save product');
+        return false;
       }
-      return false;
-    } catch (error) {
+    } catch (error: any) {
+      const errorMessage = error?.message || 'Error saving product';
       console.error('Error saving product:', error);
+      setError(errorMessage);
       return false;
     }
   }, [fetchSavedProducts]);

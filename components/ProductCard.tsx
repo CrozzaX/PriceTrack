@@ -86,12 +86,12 @@ const ProductCard = ({ product }: Props) => {
           setIsSaved(true);
           toast.success('Product saved successfully');
         } else {
-          toast.error('Failed to save product');
+          toast.error('Failed to save product. Please try again.');
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error saving product:', error);
-      toast.error('An error occurred. Please try again.');
+      toast.error(error?.message || 'An error occurred. Please try again.');
     } finally {
       setIsLoading(false);
     }
