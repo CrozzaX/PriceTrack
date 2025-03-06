@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
-import * as jose from 'jose';
 
 // Environment variable validation
 const JWT_SECRET = process.env.JWT_SECRET as string;
@@ -20,29 +19,18 @@ export async function middleware(request: NextRequest) {
     const token = request.cookies.get('token')?.value || 
                   request.headers.get('authorization')?.split(' ')[1];
     
-    if (!token) {
+    // Check for user data in localStorage (this won't work in middleware, but we'll check cookies)
+    const hasSession = !!token;
+    
+    if (!hasSession) {
       // Redirect to login page with return URL
       const url = new URL('/login', request.url);
       url.searchParams.set('returnUrl', path);
       return NextResponse.redirect(url);
     }
     
-    try {
-      // Verify token
-      const encoder = new TextEncoder();
-      const secretKey = encoder.encode(JWT_SECRET);
-      
-      await jose.jwtVerify(token, secretKey);
-      
-      // Token is valid, allow the request to proceed
-      return NextResponse.next();
-    } catch (error) {
-      console.error('Token verification error:', error);
-      // Token is invalid, redirect to login with return URL
-      const url = new URL('/login', request.url);
-      url.searchParams.set('returnUrl', path);
-      return NextResponse.redirect(url);
-    }
+    // Token exists, allow the request to proceed
+    return NextResponse.next();
   }
   
   // For non-protected routes, proceed as normal

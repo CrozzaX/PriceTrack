@@ -62,7 +62,11 @@ const Navbar = () => {
     
     // Check if user is logged in (check both localStorage and cookies)
     const checkAuth = () => {
-      const token = localStorage.getItem('token') || Cookies.get('token');
+      // Check for both regular token and Supabase token
+      const token = localStorage.getItem('token') || 
+                    localStorage.getItem('supabase.auth.token') || 
+                    Cookies.get('token');
+      
       setIsLoggedIn(!!token);
       
       // Get user data from localStorage if available
@@ -70,7 +74,12 @@ const Navbar = () => {
       if (storedUser) {
         try {
           const parsedUser = JSON.parse(storedUser);
-          setUserData(parsedUser);
+          // Update user data format to match what the component expects
+          setUserData({
+            name: parsedUser.name,
+            email: parsedUser.email,
+            profileImage: parsedUser.avatar_url || parsedUser.profileImage
+          });
         } catch (e) {
           console.error('Error parsing user data:', e);
         }
@@ -81,18 +90,25 @@ const Navbar = () => {
     
     // Add event listener for storage events
     const handleStorageChange = (e: StorageEvent) => {
-      if (e.key === 'user' || e.key === 'token') {
+      if (e.key === 'user' || e.key === 'token' || e.key === 'supabase.auth.token') {
         checkAuth();
       }
     };
     
+    // Also listen for custom storage events dispatched by the login page
+    const handleCustomStorageEvent = () => {
+      checkAuth();
+    };
+    
     window.addEventListener('storage', handleStorageChange);
+    window.addEventListener('storage', handleCustomStorageEvent);
     
     // Set up an interval to periodically check for user data changes (less frequent)
     const intervalId = setInterval(checkAuth, 5000);
     
     return () => {
       window.removeEventListener('storage', handleStorageChange);
+      window.removeEventListener('storage', handleCustomStorageEvent);
       clearInterval(intervalId);
     };
   }, []);

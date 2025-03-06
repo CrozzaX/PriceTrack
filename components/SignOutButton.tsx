@@ -3,14 +3,23 @@
 import { useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
 import { motion } from 'framer-motion';
+import { supabase } from '@/lib/supabase';
 
 export default function SignOutButton() {
   const router = useRouter();
 
-  const handleSignOut = () => {
+  const handleSignOut = async () => {
+    // Sign out from Supabase if using Supabase auth
+    try {
+      await supabase.auth.signOut();
+    } catch (error) {
+      console.error('Error signing out from Supabase:', error);
+    }
+    
     // Clear localStorage
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    localStorage.removeItem('supabase.auth.token');
     
     // Clear cookies
     Cookies.remove('token', { path: '/' });

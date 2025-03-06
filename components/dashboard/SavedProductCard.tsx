@@ -10,23 +10,44 @@ interface SavedProductCardProps {
 
 export default function SavedProductCard({ product, onRemove }: SavedProductCardProps) {
   const formatPrice = (price: number) => {
-    // Handle invalid currency codes or non-ASCII characters
-    let currencyCode = 'USD';
-    
-    // Check if product.currency exists and is a valid currency code
-    if (product.currency && /^[A-Z]{3}$/.test(product.currency)) {
-      currencyCode = product.currency;
+    // Check if product has a currency property
+    if (product.currency) {
+      // Handle specific currency symbols
+      if (product.currency === '₹' || product.currency.toLowerCase() === 'inr') {
+        // Indian Rupee
+        return `₹${price.toLocaleString('en-IN')}`;
+      } else if (product.currency === '$' || product.currency.toLowerCase() === 'usd') {
+        // US Dollar
+        return `$${price.toLocaleString('en-US')}`;
+      } else if (product.currency === '€' || product.currency.toLowerCase() === 'eur') {
+        // Euro
+        return `€${price.toLocaleString('de-DE')}`;
+      } else if (product.currency === '£' || product.currency.toLowerCase() === 'gbp') {
+        // British Pound
+        return `£${price.toLocaleString('en-GB')}`;
+      }
+      
+      // Try to use the currency code if it's a valid 3-letter code
+      if (/^[A-Z]{3}$/.test(product.currency)) {
+        try {
+          return new Intl.NumberFormat('en-US', {
+            style: 'currency',
+            currency: product.currency
+          }).format(price);
+        } catch (error) {
+          console.error('Error formatting with currency code:', error);
+        }
+      }
+      
+      // If currency is a symbol, use it directly
+      if (product.currency.length === 1) {
+        return `${product.currency}${price.toLocaleString('en-US')}`;
+      }
     }
     
-    try {
-      return new Intl.NumberFormat('en-US', {
-        style: 'currency',
-        currency: currencyCode
-      }).format(price);
-    } catch (error) {
-      // Fallback to simple formatting if NumberFormat fails
-      return `$${price.toFixed(2)}`;
-    }
+    // Fallback to simple formatting with the currency symbol if available, or $ as default
+    const currencySymbol = product.currency || '$';
+    return `${currencySymbol}${price.toFixed(2)}`;
   };
 
   const calculateDiscountPercentage = (currentPrice: number, originalPrice: number) => {
