@@ -119,7 +119,13 @@ export default async function ProductDetails({ params }: Props) {
 
             <div className="my-7">
               <h3 className="text-2xl text-secondary font-semibold mb-4">Price History</h3>
-              <PriceHistoryChart priceHistory={product.priceHistory} />
+              <PriceHistoryChart 
+                priceHistory={product.priceHistory} 
+                lowestPrice={product.lowestPrice}
+                highestPrice={product.highestPrice}
+                currentPrice={product.currentPrice}
+                averagePrice={product.averagePrice}
+              />
             </div>
 
             <div className="flex gap-4 mt-6">

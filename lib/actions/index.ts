@@ -174,8 +174,32 @@ export async function addUserEmailToProduct(productId: string, userEmail: string
     const userExists = product.users.some((user: any) => user.email === userEmail);
 
     if (!userExists) {
+      // Add user email to product
       product.users.push({ email: userEmail });
       await product.save();
+      
+      // Send welcome email
+      try {
+        // Import email functions
+        const { generateEmailBody, sendEmail } = await import('@/lib/nodemailer');
+        
+        // Create email content
+        const emailContent = await generateEmailBody(
+          {
+            title: product.title,
+            url: product.url,
+          },
+          'WELCOME'
+        );
+        
+        // Send the welcome email
+        await sendEmail(emailContent, [userEmail]);
+        
+        console.log(`Welcome email sent to ${userEmail} for product ${product.title}`);
+      } catch (emailError) {
+        console.error('Error sending welcome email:', emailError);
+        // Don't throw here, we still want to return the product even if email fails
+      }
     }
 
     revalidatePath(`/products/${productId}`);

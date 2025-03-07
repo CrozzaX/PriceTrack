@@ -80,28 +80,42 @@ export async function generateEmailBody(
   return { subject, body };
 }
 
-const transporter = nodemailer.createTransport({
-  pool: true,
-  service: 'hotmail',
-  port: 2525,
-  auth: {
-    user: 'projectfinalyear123@outlook.com',
-    pass: process.env.EMAIL_PASSWORD,
-  },
-  maxConnections: 1
-})
-
-export const sendEmail = async (emailContent: EmailContent, sendTo: string[]) => {
-  const mailOptions = {
-    from: 'projectfinalyear123@outlook.com',
-    to: sendTo,
-    html: emailContent.body,
-    subject: emailContent.subject,
+// Create a transporter with better error handling
+const createTransporter = () => {
+  // Check if email password is set
+  if (!process.env.EMAIL_PASSWORD) {
+    console.error('EMAIL_PASSWORD environment variable is not set');
+    throw new Error('Email configuration error: Missing password');
   }
 
-  transporter.sendMail(mailOptions, (error: any, info: any) => {
-    if(error) return console.log(error);
+  return nodemailer.createTransport({
+    service: 'outlook',
+    auth: {
+      user: 'projectfinalyear123@outlook.com',
+      pass: process.env.EMAIL_PASSWORD,
+    },
+    tls: {
+      rejectUnauthorized: false
+    }
+  });
+};
+
+export const sendEmail = async (emailContent: EmailContent, sendTo: string[]) => {
+  try {
+    const transporter = createTransporter();
     
-    console.log('Email sent: ', info);
-  })
+    const mailOptions = {
+      from: 'projectfinalyear123@outlook.com',
+      to: sendTo,
+      html: emailContent.body,
+      subject: emailContent.subject,
+    };
+
+    const info = await transporter.sendMail(mailOptions);
+    console.log('Email sent successfully:', info.response);
+    return { success: true, messageId: info.messageId };
+  } catch (error) {
+    console.error('Failed to send email:', error);
+    throw new Error(`Failed to send email: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
 }

@@ -5,6 +5,7 @@ import { Dialog, Transition } from '@headlessui/react'
 import Image from 'next/image'
 import { addUserEmailToProduct } from '@/lib/actions'
 import { motion } from 'framer-motion'
+import { toast } from 'react-hot-toast'
 
 interface Props {
   productId: string
@@ -14,16 +15,34 @@ const Modal = ({ productId }: Props) => {
   let [isOpen, setIsOpen] = useState(false)
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [email, setEmail] = useState('');
+  const [isSuccess, setIsSuccess] = useState(false);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setIsSubmitting(true);
+    setIsSuccess(false);
 
-    await addUserEmailToProduct(productId, email);
-
-    setIsSubmitting(false)
-    setEmail('')
-    closeModal()
+    try {
+      // Add email to product tracking list
+      await addUserEmailToProduct(productId, email);
+      
+      // Show success message
+      setIsSuccess(true);
+      toast.success('You are now tracking this product! Check your email for confirmation.');
+      
+      // Reset form after a delay
+      setTimeout(() => {
+        setEmail('');
+        closeModal();
+        setIsSuccess(false);
+      }, 3000);
+    } catch (error) {
+      console.error('Error tracking product:', error);
+      toast.error('Failed to track product. Please try again.');
+      setIsSuccess(false);
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   const openModal = () => setIsOpen(true);
@@ -136,7 +155,9 @@ const Modal = ({ productId }: Props) => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.1, duration: 0.4 }}
                   >
-                    Stay updated with product pricing alerts right in your inbox!
+                    {isSuccess 
+                      ? "Success! You're now tracking this product" 
+                      : "Stay updated with product pricing alerts right in your inbox!"}
                   </motion.h4>
 
                   <motion.p 
@@ -145,85 +166,108 @@ const Modal = ({ productId }: Props) => {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: 0.2, duration: 0.4 }}
                   >
-                    Never miss a bargain again with our timely alerts!
+                    {isSuccess 
+                      ? "Check your email for a confirmation message. We'll notify you of any price changes." 
+                      : "Never miss a bargain again with our timely alerts!"}
                   </motion.p>
                 </div>
 
-                <motion.form 
-                  className="flex flex-col mt-5" 
-                  onSubmit={handleSubmit}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3, duration: 0.4 }}
-                >
-                  <label htmlFor="email" className="text-sm font-medium text-gray-700 text-left">
-                    Email address
-                  </label>
-                  <div className="relative mt-1 group">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                      <motion.div
-                        whileHover={{ scale: 1.1, rotate: 5 }}
-                        transition={{ type: "spring", stiffness: 400, damping: 10 }}
-                      >
-                        <Image 
-                          src="/assets/icons/mail.svg"
-                          alt='mail'
-                          width={18}
-                          height={18}
-                        />
-                      </motion.div>
-                    </div>
-                    <input 
-                      required
-                      type="email"
-                      id="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="Enter your email address"
-                      className='w-full py-2.5 pl-10 pr-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 hover:border-blue-300'
-                    />
-                  </div>
-
-                  <motion.button 
-                    type="submit"
-                    className="bg-[#111827] text-white py-2.5 px-5 rounded-lg mt-4 hover:opacity-90 flex items-center justify-center gap-2"
-                    whileHover={{ scale: 1.02, boxShadow: "0px 5px 10px rgba(0, 0, 0, 0.1)" }}
-                    whileTap={{ scale: 0.98 }}
-                    transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                {isSuccess ? (
+                  <motion.div 
+                    className="mt-6 flex justify-center"
+                    initial={{ opacity: 0, scale: 0.8 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ delay: 0.3, duration: 0.4 }}
                   >
-                    {isSubmitting ? (
-                      <>
-                        <motion.div 
-                          className="h-5 w-5 rounded-full border-2 border-white border-t-transparent"
-                          animate={{ rotate: 360 }}
-                          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                        />
-                        <span>Submitting...</span>
-                      </>
-                    ) : (
-                      <>
+                    <div className="bg-green-50 text-green-700 p-4 rounded-lg flex items-center gap-3">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                      </svg>
+                      <p>Email sent successfully!</p>
+                    </div>
+                  </motion.div>
+                ) : (
+                  <motion.form 
+                    className="flex flex-col mt-5" 
+                    onSubmit={handleSubmit}
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: 0.3, duration: 0.4 }}
+                  >
+                    <label htmlFor="email" className="text-sm font-medium text-gray-700 text-left">
+                      Email address
+                    </label>
+                    <div className="relative mt-1 group">
+                      <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                         <motion.div
-                          whileHover={{ rotate: 15 }}
+                          whileHover={{ scale: 1.1, rotate: 5 }}
                           transition={{ type: "spring", stiffness: 400, damping: 10 }}
                         >
                           <Image 
-                            src="/assets/icons/bookmark.svg"
-                            alt="bookmark"
+                            src="/assets/icons/mail.svg"
+                            alt='mail'
                             width={18}
                             height={18}
                           />
                         </motion.div>
-                        <motion.span
-                          initial={{ x: 0 }}
-                          whileHover={{ x: 3 }}
-                          transition={{ type: "spring", stiffness: 400, damping: 10 }}
-                        >
-                          Track
-                        </motion.span>
-                      </>
-                    )}
-                  </motion.button>
-                </motion.form>
+                      </div>
+                      <input 
+                        required
+                        type="email"
+                        id="email"
+                        value={email}
+                        onChange={(e) => setEmail(e.target.value)}
+                        placeholder="Enter your email address"
+                        className='w-full py-2.5 pl-10 pr-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-300 hover:border-blue-300'
+                      />
+                    </div>
+
+                    <motion.button 
+                      type="submit"
+                      className="bg-[#111827] text-white py-2.5 px-5 rounded-lg mt-4 hover:opacity-90 flex items-center justify-center gap-2"
+                      whileHover={{ scale: 1.02, boxShadow: "0px 5px 10px rgba(0, 0, 0, 0.1)" }}
+                      whileTap={{ scale: 0.98 }}
+                      transition={{ type: "spring", stiffness: 400, damping: 17 }}
+                      disabled={isSubmitting}
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <motion.div 
+                            className="h-5 w-5 rounded-full border-2 border-white border-t-transparent"
+                            animate={{ rotate: 360 }}
+                            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                          />
+                          <span>Submitting...</span>
+                        </>
+                      ) : (
+                        <>
+                          <motion.div
+                            whileHover={{ rotate: 15 }}
+                            transition={{ type: "spring", stiffness: 400, damping: 10 }}
+                          >
+                            <Image 
+                              src="/assets/icons/bookmark.svg"
+                              alt="bookmark"
+                              width={18}
+                              height={18}
+                            />
+                          </motion.div>
+                          <motion.span
+                            initial={{ x: 0 }}
+                            whileHover={{ x: 3 }}
+                            transition={{ type: "spring", stiffness: 400, damping: 10 }}
+                          >
+                            Track Now
+                          </motion.span>
+                        </>
+                      )}
+                    </motion.button>
+                    
+                    <p className="text-xs text-gray-500 mt-3 text-center">
+                      We'll send you an email confirmation. Please check your spam folder if you don't see it.
+                    </p>
+                  </motion.form>
+                )}
               </motion.div>
             </Transition.Child>
           </div>

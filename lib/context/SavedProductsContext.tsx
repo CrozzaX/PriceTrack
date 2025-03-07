@@ -42,6 +42,21 @@ export function SavedProductsProvider({ children }: { children: ReactNode }) {
         return;
       }
 
+      // Add a timestamp to prevent excessive API calls
+      const lastFetchTime = localStorage.getItem('savedProductsLastFetch');
+      const now = Date.now();
+      
+      // Only fetch if it's been more than 30 seconds since the last fetch
+      // or if we don't have any saved products yet
+      if (
+        lastFetchTime && 
+        savedProducts.length > 0 && 
+        now - parseInt(lastFetchTime) < 30000
+      ) {
+        setIsLoading(false);
+        return;
+      }
+
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 second timeout
 
@@ -60,6 +75,9 @@ export function SavedProductsProvider({ children }: { children: ReactNode }) {
         setSavedProducts(data.products);
         setLastUpdated(Date.now());
         setError(null); // Clear any previous errors
+        
+        // Store the fetch timestamp
+        localStorage.setItem('savedProductsLastFetch', now.toString());
       } else {
         // Handle different error status codes
         if (response.status === 401) {
@@ -85,7 +103,7 @@ export function SavedProductsProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [savedProducts.length]);
 
   // Initialize saved products on mount
   useEffect(() => {

@@ -39,7 +39,7 @@ export default async function ProductsPage() {
             </h1>
 
             <p className="mt-6">
-              Enter a product URL below to start tracking its price. We support major retailers including Amazon, Best Buy, and more.
+              Enter a product URL below to start tracking its price. We support major retailers including Amazon, Flipkart, and more.
             </p>
 
             <Searchbar />

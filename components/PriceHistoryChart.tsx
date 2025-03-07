@@ -22,9 +22,19 @@ import { motion } from 'framer-motion';
 
 interface PriceHistoryChartProps {
   priceHistory: PriceHistoryItem[];
+  lowestPrice?: number;
+  highestPrice?: number;
+  currentPrice?: number;
+  averagePrice?: number;
 }
 
-const PriceHistoryChart = ({ priceHistory }: PriceHistoryChartProps) => {
+const PriceHistoryChart = ({ 
+  priceHistory, 
+  lowestPrice: productLowestPrice, 
+  highestPrice: productHighestPrice,
+  currentPrice: productCurrentPrice,
+  averagePrice: productAveragePrice
+}: PriceHistoryChartProps) => {
   const [mounted, setMounted] = useState(false);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [timeRange, setTimeRange] = useState<'all' | '3m' | '1m' | '1w'>('1w');
@@ -59,8 +69,20 @@ const PriceHistoryChart = ({ priceHistory }: PriceHistoryChartProps) => {
         let price = basePrice * (1 + variationPercent);
         
         // Ensure the current price (i=0) matches the actual current price
-        if (i === 0) {
-          price = basePrice;
+        if (i === 0 && productCurrentPrice) {
+          price = productCurrentPrice;
+        }
+        
+        // Ensure we have data points for lowest and highest prices
+        if (productLowestPrice && productHighestPrice) {
+          // Add lowest price point somewhere in the middle
+          if (i === 15) {
+            price = productLowestPrice;
+          }
+          // Add highest price point somewhere in the first half
+          else if (i === 25) {
+            price = productHighestPrice;
+          }
         }
         
         result.push({
@@ -73,7 +95,7 @@ const PriceHistoryChart = ({ priceHistory }: PriceHistoryChartProps) => {
     }
     
     return priceHistory;
-  }, [priceHistory]);
+  }, [priceHistory, productCurrentPrice, productLowestPrice, productHighestPrice]);
 
   if (!mounted) {
     return (
@@ -153,21 +175,21 @@ const PriceHistoryChart = ({ priceHistory }: PriceHistoryChartProps) => {
     };
   });
 
-  // Calculate min and max prices for reference lines
+  // Use product details prices if available, otherwise calculate from chart data
   const prices = chartData.map(item => item.price);
-  const minPrice = Math.min(...prices);
-  const maxPrice = Math.max(...prices);
+  const minPrice = productLowestPrice || Math.min(...prices);
+  const maxPrice = productHighestPrice || Math.max(...prices);
   
   // Calculate current price and previous day price
-  const currentPrice = chartData.length > 0 ? chartData[chartData.length - 1].price : 0;
+  const currentPrice = productCurrentPrice || (chartData.length > 0 ? chartData[chartData.length - 1].price : 0);
   const previousDayPrice = chartData.length > 1 ? chartData[chartData.length - 2].price : currentPrice;
   const priceChange = currentPrice - previousDayPrice;
   const priceChangePercent = previousDayPrice !== 0 ? (priceChange / previousDayPrice) * 100 : 0;
   const isPriceUp = priceChange >= 0;
 
   // Find indices for min and max prices
-  const minPriceIndex = chartData.findIndex(item => item.price === minPrice);
-  const maxPriceIndex = chartData.findIndex(item => item.price === maxPrice);
+  const minPriceIndex = chartData.findIndex(item => Math.abs(item.price - minPrice) < 0.01);
+  const maxPriceIndex = chartData.findIndex(item => Math.abs(item.price - maxPrice) < 0.01);
   const currentPriceIndex = chartData.length - 1;
 
   // Format INR currency with commas (e.g., 1,23,456)
@@ -222,13 +244,13 @@ const PriceHistoryChart = ({ priceHistory }: PriceHistoryChartProps) => {
             </div>
           )}
           
-          {data.price === minPrice && (
+          {Math.abs(data.price - minPrice) < 0.01 && (
             <div className="mt-1 text-xs font-medium text-green-600">
               Lowest Price
             </div>
           )}
           
-          {data.price === maxPrice && (
+          {Math.abs(data.price - maxPrice) < 0.01 && (
             <div className="mt-1 text-xs font-medium text-red-600">
               Highest Price
             </div>

@@ -42,23 +42,38 @@ export async function verifyToken(req: NextRequest): Promise<string | null> {
         }
         
         // Try to verify as a Supabase token
-        const { data, error } = await supabase.auth.getUser(token);
-        
-        if (error || !data.user) {
-          console.error('Supabase token verification failed:', error);
-          return null;
+        try {
+          const { data, error } = await supabase.auth.getUser(token);
+          
+          if (error) {
+            // If token is expired, try to find user by token in our database
+            if (error.message.includes('expired') || error.message.includes('invalid')) {
+              return await getUserIdByToken(token);
+            }
+            
+            console.error('Supabase token verification failed:', error);
+            return null;
+          }
+          
+          if (!data.user) {
+            console.error('No user found in Supabase data');
+            return null;
+          }
+          
+          // Get user email from Supabase
+          const email = data.user.email;
+          if (!email) {
+            console.error('No email found in Supabase user data');
+            return null;
+          }
+          
+          // Find user in MongoDB by email
+          const userId = await getUserIdByEmail(email);
+          return userId;
+        } catch (supabaseError) {
+          // If Supabase verification fails, try to find user by token in our database
+          return await getUserIdByToken(token);
         }
-        
-        // Get user email from Supabase
-        const email = data.user.email;
-        if (!email) {
-          console.error('No email found in Supabase user data');
-          return null;
-        }
-        
-        // Find user in MongoDB by email
-        const userId = await getUserIdByEmail(email);
-        return userId;
       } catch (supabaseError) {
         console.error('Error verifying Supabase token:', supabaseError);
         return null;
@@ -85,6 +100,38 @@ async function getUserIdByEmail(email: string): Promise<string | null> {
     return user._id.toString();
   } catch (error) {
     console.error('Error finding user by email:', error);
+    return null;
+  }
+}
+
+// Helper function to get user ID from MongoDB by token
+async function getUserIdByToken(token: string): Promise<string | null> {
+  try {
+    const conn = await connectToAuthDB();
+    const User = conn.model('User');
+    
+    // Find user by stored token (this assumes you store tokens with users)
+    // You might need to adjust this query based on your actual data model
+    const user = await User.findOne({ 'tokens.token': token });
+    if (!user) {
+      // If no user found with this token, try to decode it to get email
+      try {
+        // This is a simple JWT decode (not verify) to extract payload
+        const decoded = JSON.parse(Buffer.from(token.split('.')[1], 'base64').toString());
+        if (decoded.email) {
+          return await getUserIdByEmail(decoded.email);
+        }
+      } catch (decodeError) {
+        console.error('Error decoding token:', decodeError);
+      }
+      
+      console.error('User not found with token');
+      return null;
+    }
+    
+    return user._id.toString();
+  } catch (error) {
+    console.error('Error finding user by token:', error);
     return null;
   }
 } 
