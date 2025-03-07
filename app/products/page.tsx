@@ -3,6 +3,7 @@ import HeroCarousel from "@/components/HeroCarousel";
 import Searchbar from "@/components/Searchbar";
 import { getAllProducts } from "@/lib/actions";
 import ProductCard from "@/components/ProductCard";
+import GoogleAuthHandler from '@/components/GoogleAuthHandler';
 
 export default async function ProductsPage() {
   const allProducts = await getAllProducts();
@@ -16,6 +17,9 @@ export default async function ProductsPage() {
 
   return (
     <div className="w-full min-h-screen flex flex-col pt-20">
+      {/* Google Auth Handler - Client Component */}
+      <GoogleAuthHandler />
+      
       <section className="px-6 md:px-20 py-24">
         <div className="flex max-xl:flex-col gap-16">
           <div className="flex flex-col justify-center"> 

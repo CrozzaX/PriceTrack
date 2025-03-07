@@ -43,6 +43,11 @@ export default function LoginPage() {
   const handleGoogleSignIn = async () => {
     try {
       setIsLoading(true);
+      
+      // Create a custom event that will be dispatched when the user returns from Google OAuth
+      // Store it in sessionStorage so it persists through the redirect
+      sessionStorage.setItem('pendingGoogleAuth', 'true');
+      
       const { data, error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -50,7 +55,7 @@ export default function LoginPage() {
             access_type: 'offline',
             prompt: 'consent',
           },
-          redirectTo: `${window.location.origin}/products`
+          redirectTo: `${window.location.origin}/products?auth=google`
         },
       });
 

@@ -7,6 +7,7 @@ import SignOutButton from './SignOutButton';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import Cookies from 'js-cookie';
 import { motion } from 'framer-motion';
+import { supabase } from '@/lib/supabase';
 
 const Navbar = () => {
   const router = useRouter();
@@ -16,6 +17,7 @@ const Navbar = () => {
   const [userData, setUserData] = useState<{ name?: string; email?: string; profileImage?: string } | null>(null);
   const [isProfileLoading, setIsProfileLoading] = useState(false);
   const dataFetchedRef = useRef(false);
+  const authCheckedRef = useRef(false);
   
   // Function to fetch user profile data
   const fetchUserProfile = useCallback(async () => {
@@ -27,8 +29,7 @@ const Navbar = () => {
         headers: {
           Authorization: `Bearer ${token}`
         },
-        // Add cache control to prevent excessive fetching
-        cache: 'force-cache'
+        cache: 'no-store'
       });
       
       if (response.ok) {
@@ -55,19 +56,54 @@ const Navbar = () => {
       });
     }
   };
+
+  // Check Supabase session directly
+  const checkSupabaseSession = useCallback(async () => {
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session) {
+        // We have a valid session, update the state
+        setIsLoggedIn(true);
+        
+        // Get user details from session
+        const { user } = session;
+        
+        // Create user data object
+        const userData = {
+          id: user.id,
+          email: user.email,
+          name: user.user_metadata?.full_name || user.user_metadata?.name || user.email,
+          profileImage: user.user_metadata?.avatar_url || user.user_metadata?.picture,
+        };
+        
+        // Update user data state
+        setUserData(userData);
+        
+        // Store session data
+        localStorage.setItem('token', session.access_token);
+        localStorage.setItem('user', JSON.stringify(userData));
+        Cookies.set('token', session.access_token, { expires: 7, path: '/' });
+        
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('Error checking Supabase session:', error);
+      return false;
+    }
+  }, []);
   
   // Check authentication status
-  useEffect(() => {
-    setIsMounted(true);
+  const checkAuth = useCallback(async () => {
+    // Check for both regular token and Supabase token
+    const token = localStorage.getItem('token') || 
+                  localStorage.getItem('supabase.auth.token') || 
+                  Cookies.get('token');
     
-    // Check if user is logged in (check both localStorage and cookies)
-    const checkAuth = () => {
-      // Check for both regular token and Supabase token
-      const token = localStorage.getItem('token') || 
-                    localStorage.getItem('supabase.auth.token') || 
-                    Cookies.get('token');
-      
-      setIsLoggedIn(!!token);
+    if (token) {
+      setIsLoggedIn(true);
       
       // Get user data from localStorage if available
       const storedUser = localStorage.getItem('user');
@@ -83,10 +119,49 @@ const Navbar = () => {
         } catch (e) {
           console.error('Error parsing user data:', e);
         }
+      } else if (!dataFetchedRef.current) {
+        // If we have a token but no user data, fetch the profile
+        dataFetchedRef.current = true;
+        await fetchUserProfile();
       }
+      
+      return true;
+    } else {
+      // No token found in localStorage or cookies, check Supabase session directly
+      const hasSession = await checkSupabaseSession();
+      
+      if (!hasSession) {
+        setIsLoggedIn(false);
+        setUserData(null);
+      }
+      
+      return hasSession;
+    }
+  }, [fetchUserProfile, checkSupabaseSession]);
+  
+  // Initial auth check on mount
+  useEffect(() => {
+    if (typeof window === 'undefined' || authCheckedRef.current) return;
+    
+    const initializeAuth = async () => {
+      setIsMounted(true);
+      
+      // Check if we're coming from a redirect (Google OAuth)
+      const isRedirect = window.location.href.includes('products') && 
+                         document.referrer.includes('accounts.google.com');
+      
+      if (isRedirect) {
+        // We're likely coming from Google OAuth, check session directly
+        await checkSupabaseSession();
+      } else {
+        // Normal auth check
+        await checkAuth();
+      }
+      
+      authCheckedRef.current = true;
     };
     
-    checkAuth();
+    initializeAuth();
     
     // Add event listener for storage events
     const handleStorageChange = (e: StorageEvent) => {
@@ -101,30 +176,30 @@ const Navbar = () => {
     };
     
     window.addEventListener('storage', handleStorageChange);
-    window.addEventListener('storage', handleCustomStorageEvent);
+    window.addEventListener('authchange', handleCustomStorageEvent);
     
     // Set up an interval to periodically check for user data changes (less frequent)
-    const intervalId = setInterval(checkAuth, 5000);
+    const intervalId = setInterval(() => checkAuth(), 5000);
     
     return () => {
       window.removeEventListener('storage', handleStorageChange);
-      window.removeEventListener('storage', handleCustomStorageEvent);
+      window.removeEventListener('authchange', handleCustomStorageEvent);
       clearInterval(intervalId);
     };
-  }, []);
+  }, [checkAuth, checkSupabaseSession]);
   
-  // Fetch user data if needed (separate effect to avoid infinite loop)
+  // Check auth on route changes
   useEffect(() => {
-    if (isLoggedIn && !userData && !dataFetchedRef.current) {
-      dataFetchedRef.current = true;
-      fetchUserProfile();
+    if (pathname && typeof window !== 'undefined') {
+      checkAuth();
     }
-  }, [isLoggedIn, userData, fetchUserProfile]);
+  }, [pathname, checkAuth]);
   
   // Reset the dataFetched ref when user logs out
   useEffect(() => {
     if (!isLoggedIn) {
       dataFetchedRef.current = false;
+      authCheckedRef.current = false;
     }
   }, [isLoggedIn]);
   

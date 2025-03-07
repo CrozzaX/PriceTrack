@@ -16,19 +16,43 @@ export default function SignOutButton() {
       console.error('Error signing out from Supabase:', error);
     }
     
-    // Clear localStorage
+    // Clear all possible auth tokens from localStorage
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     localStorage.removeItem('supabase.auth.token');
+    localStorage.removeItem('jwt_token');
+    
+    // Also try to clear any Supabase session data
+    try {
+      localStorage.removeItem('sb-access-token');
+      localStorage.removeItem('sb-refresh-token');
+      localStorage.removeItem('supabase.auth.data');
+      localStorage.removeItem('supabase.auth.event');
+    } catch (error) {
+      console.error('Error clearing Supabase session data:', error);
+    }
     
     // Clear cookies
     Cookies.remove('token', { path: '/' });
+    Cookies.remove('jwt_token', { path: '/' });
+    
+    // Clear any pending Google auth
+    sessionStorage.removeItem('pendingGoogleAuth');
     
     // Trigger storage event for other components
     window.dispatchEvent(new Event('storage'));
     
+    // Create and dispatch a custom event for auth change
+    const authEvent = new CustomEvent('authchange', { detail: { isAuthenticated: false } });
+    window.dispatchEvent(authEvent);
+    
     // Redirect to home page
     router.push('/');
+    
+    // Force a page reload to ensure all components update
+    setTimeout(() => {
+      window.location.href = '/';
+    }, 100);
   };
 
   return (
