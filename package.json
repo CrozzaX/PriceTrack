@@ -21,7 +21,7 @@
     "axios": "^1.7.9",
     "bcryptjs": "^3.0.2",
     "cheerio": "^1.0.0-rc.12",
-    "framer-motion": "^12.4.7",
+    "framer-motion": "^12.4.10",
     "jose": "^6.0.8",
     "js-cookie": "^3.0.5",
     "jsonwebtoken": "^9.0.2",

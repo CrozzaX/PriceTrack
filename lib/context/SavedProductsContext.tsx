@@ -38,6 +38,7 @@ export function SavedProductsProvider({ children }: { children: ReactNode }) {
       if (!token) {
         setSavedProducts([]);
         setIsLoading(false);
+        setError('Authentication required. Please sign in.');
         return;
       }
 
@@ -58,17 +59,29 @@ export function SavedProductsProvider({ children }: { children: ReactNode }) {
         const data = await response.json();
         setSavedProducts(data.products);
         setLastUpdated(Date.now());
+        setError(null); // Clear any previous errors
       } else {
-        const errorData = await response.json();
-        setError(errorData.message || 'Failed to fetch saved products');
+        // Handle different error status codes
+        if (response.status === 401) {
+          setError('Your session has expired. Please sign in again.');
+          // Clear invalid tokens
+          localStorage.removeItem('token');
+          Cookies.remove('token');
+        } else {
+          const errorData = await response.json();
+          setError(errorData.message || 'Failed to fetch saved products');
+        }
+        setSavedProducts([]);
       }
     } catch (error: any) {
       if (error.name === 'AbortError') {
         console.log('Saved products fetch request timed out');
+        setError('Request timed out. Please try again.');
       } else {
         console.error('Error fetching saved products:', error);
         setError('An error occurred while fetching your saved products');
       }
+      setSavedProducts([]);
     } finally {
       setIsLoading(false);
     }
@@ -78,7 +91,35 @@ export function SavedProductsProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (typeof window !== 'undefined' && !isInitialized) {
       setIsInitialized(true);
-      fetchSavedProducts();
+      
+      // Check for authentication token
+      const token = localStorage.getItem('token') || Cookies.get('token');
+      if (token) {
+        // Immediately fetch saved products
+        fetchSavedProducts();
+        
+        // Set up event listeners for auth changes
+        const handleAuthChange = () => {
+          const currentToken = localStorage.getItem('token') || Cookies.get('token');
+          if (currentToken) {
+            fetchSavedProducts();
+          } else {
+            setSavedProducts([]);
+          }
+        };
+        
+        window.addEventListener('storage', handleAuthChange);
+        window.addEventListener('authchange', handleAuthChange);
+        
+        return () => {
+          window.removeEventListener('storage', handleAuthChange);
+          window.removeEventListener('authchange', handleAuthChange);
+        };
+      } else {
+        // No token, clear saved products
+        setSavedProducts([]);
+        setIsLoading(false);
+      }
     }
   }, [fetchSavedProducts, isInitialized]);
 

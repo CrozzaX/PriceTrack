@@ -150,6 +150,7 @@ const Navbar = () => {
       const isRedirect = window.location.href.includes('products') && 
                          document.referrer.includes('accounts.google.com');
       
+      // Force immediate auth check
       if (isRedirect) {
         // We're likely coming from Google OAuth, check session directly
         await checkSupabaseSession();
@@ -157,6 +158,12 @@ const Navbar = () => {
         // Normal auth check
         await checkAuth();
       }
+      
+      // Dispatch an auth event to notify other components
+      const authEvent = new CustomEvent('authchange', { 
+        detail: { isAuthenticated: isLoggedIn } 
+      });
+      window.dispatchEvent(authEvent);
       
       authCheckedRef.current = true;
     };

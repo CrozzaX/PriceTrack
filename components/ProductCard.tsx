@@ -5,7 +5,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import React from 'react'
 import { useCompare } from '@/lib/context/CompareContext';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
 import { toast } from 'react-hot-toast';
@@ -18,7 +18,7 @@ interface Props {
 const ProductCard = ({ product }: Props) => {
   const router = useRouter();
   const { compareProducts, addToCompare, removeFromCompare } = useCompare();
-  const { checkIfProductIsSaved, saveProduct, removeProduct } = useSavedProducts();
+  const { checkIfProductIsSaved, saveProduct, removeProduct, refreshSavedProducts, savedProducts, isLoading: isSavedProductsLoading } = useSavedProducts();
   const isInCompare = compareProducts.some(p => p._id === product._id);
   const [isSaved, setIsSaved] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -30,16 +30,48 @@ const ProductCard = ({ product }: Props) => {
     return url.startsWith("//") ? `https:${url}` : url;
   };
 
-  useEffect(() => {
-    // Check if user is logged in (check both localStorage and cookies)
-    const token = localStorage.getItem('token') || Cookies.get('token');
-    setIsLoggedIn(!!token);
+  // Check if product is saved
+  const checkSavedStatus = useCallback(() => {
+    if (!product._id) return false;
     
-    // Check if product is already saved using the context
-    if (token && product._id) {
-      setIsSaved(checkIfProductIsSaved(product._id));
+    const token = localStorage.getItem('token') || Cookies.get('token');
+    if (!token) {
+      setIsLoggedIn(false);
+      return false;
     }
+    
+    setIsLoggedIn(true);
+    const savedStatus = checkIfProductIsSaved(product._id);
+    setIsSaved(savedStatus);
+    return savedStatus;
   }, [product._id, checkIfProductIsSaved]);
+
+  // Initial check for saved status
+  useEffect(() => {
+    // Refresh saved products first to ensure we have the latest data
+    const initializeCard = async () => {
+      const token = localStorage.getItem('token') || Cookies.get('token');
+      setIsLoggedIn(!!token);
+      
+      if (token) {
+        // Only refresh if we haven't loaded saved products yet
+        if (savedProducts.length === 0 && !isSavedProductsLoading) {
+          await refreshSavedProducts();
+        }
+        checkSavedStatus();
+      }
+    };
+    
+    initializeCard();
+  }, [product._id, checkSavedStatus, refreshSavedProducts, savedProducts.length, isSavedProductsLoading]);
+  
+  // Update saved status when savedProducts changes
+  useEffect(() => {
+    if (isLoggedIn && product._id) {
+      const savedStatus = checkIfProductIsSaved(product._id);
+      setIsSaved(savedStatus);
+    }
+  }, [savedProducts, product._id, checkIfProductIsSaved, isLoggedIn]);
 
   const handleCompareClick = (e: React.MouseEvent) => {
     e.preventDefault();
