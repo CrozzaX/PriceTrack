@@ -147,18 +147,19 @@ export default async function ProductDetails({ params }: Props) {
           </div>
         </div>
 
-        <button className="bg-[#111827] text-white rounded-full px-6 py-3 w-fit mx-auto flex items-center justify-center gap-3 min-w-[200px] hover:opacity-90 transition-opacity">
+        <Link 
+          href={product.url} 
+          target="_blank" 
+          className="bg-[#111827] text-white rounded-full px-6 py-3 w-fit mx-auto flex items-center justify-center gap-3 min-w-[200px] hover:opacity-90 transition-opacity mt-8"
+        >
           <Image 
             src="/assets/icons/bag.svg"
             alt="check"
             width={22}
             height={22}
           />
-
-          <Link href="/" className="text-base text-white">
-            Buy Now
-          </Link>
-        </button>
+          <span className="text-base text-white">Buy Now</span>
+        </Link>
 
         {similarProducts && similarProducts?.length > 0 && (
           <div className="py-14 flex flex-col gap-2 w-full">

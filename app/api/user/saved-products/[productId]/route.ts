@@ -7,7 +7,7 @@ export async function DELETE(
   { params }: { params: { productId: string } }
 ) {
   try {
-    // Get product ID from route params
+    // Get product ID from route params - properly await params
     const { productId } = params;
     
     // Verify authentication
@@ -19,6 +19,24 @@ export async function DELETE(
     // Connect to the auth database
     const conn = await connectToAuthDB();
     const User = conn.model('User');
+    
+    // First check if the product exists in the user's saved products
+    const user = await User.findById(userId);
+    if (!user) {
+      return NextResponse.json({ message: 'User not found' }, { status: 404 });
+    }
+    
+    const isProductSaved = user.savedProducts.some(
+      (item: any) => item.productId.toString() === productId
+    );
+    
+    if (!isProductSaved) {
+      // If product is not saved, return success instead of error
+      return NextResponse.json({ 
+        message: 'Product not found or already removed',
+        alreadyRemoved: true
+      });
+    }
     
     // Update user document by removing the product
     const result = await User.updateOne(

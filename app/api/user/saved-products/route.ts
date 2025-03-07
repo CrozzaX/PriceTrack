@@ -93,7 +93,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Validate source value
-    const validSources = ['Amazon', 'Flipkart', 'Myntra', 'ProductCard', 'Other'];
+    const validSources = ['Amazon', 'Flipkart', 'Myntra', 'ProductCard', 'ProductDetail', 'Other'];
     if (!validSources.includes(source)) {
       return NextResponse.json(
         { message: 'Invalid source value' },
@@ -126,10 +126,14 @@ export async function POST(req: NextRequest) {
     );
     
     if (isProductSaved) {
-      return NextResponse.json(
-        { message: 'Product already saved' },
-        { status: 400 }
-      );
+      // If product is already saved, return success instead of error
+      return NextResponse.json({ 
+        message: 'Product already saved',
+        alreadySaved: true,
+        savedProduct: user.savedProducts.find(
+          (item: SavedProduct) => item.productId.toString() === productId
+        )
+      });
     }
     
     // Add product to savedProducts

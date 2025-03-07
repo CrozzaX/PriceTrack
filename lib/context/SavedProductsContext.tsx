@@ -7,7 +7,7 @@ import { Product } from '@/types';
 interface SavedProduct extends Product {
   savedInfo?: {
     dateAdded: Date;
-    source: 'Amazon' | 'Flipkart' | 'Myntra' | 'ProductCard' | 'Other';
+    source: 'Amazon' | 'Flipkart' | 'Myntra' | 'ProductCard' | 'ProductDetail' | 'Other';
   };
 }
 
@@ -108,9 +108,13 @@ export function SavedProductsProvider({ children }: { children: ReactNode }) {
       const data = await response.json();
 
       if (response.ok) {
-        if (data.savedProduct) {
-          // Update the local state with the new saved product
-          await fetchSavedProducts(); // Refresh the entire list to ensure consistency
+        // Handle both new saves and already saved products
+        if (data.savedProduct || data.alreadySaved) {
+          // If the product was already saved, we don't need to refresh the list
+          if (!data.alreadySaved) {
+            // Only refresh if it's a new save
+            await fetchSavedProducts();
+          }
         }
         setLastUpdated(Date.now());
         setError(null);
