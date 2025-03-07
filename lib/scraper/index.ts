@@ -51,19 +51,85 @@ export async function scrapeAmazonProduct(url: string) {
     host: 'brd.superproxy.io',
     port,
     rejectUnauthorized: false,
+    // Set a reasonable limit for redirects to prevent infinite loops
+    maxRedirects: 5,
+    // Add more browser-like headers to avoid detection
+    headers: {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+      'Accept-Language': 'en-US,en;q=0.9',
+      'Accept-Encoding': 'gzip, deflate, br',
+      'Cache-Control': 'max-age=0',
+      'Connection': 'keep-alive',
+      'Sec-Ch-Ua': '"Not A(Brand";v="99", "Google Chrome";v="121", "Chromium";v="121"',
+      'Sec-Ch-Ua-Mobile': '?0',
+      'Sec-Ch-Ua-Platform': '"Windows"',
+      'Sec-Fetch-Dest': 'document',
+      'Sec-Fetch-Mode': 'navigate',
+      'Sec-Fetch-Site': 'none',
+      'Sec-Fetch-User': '?1',
+      'Upgrade-Insecure-Requests': '1',
+      'Referer': 'https://www.google.com/'
+    },
+    // Set a reasonable timeout
+    timeout: 30000,
   }
 
   try {
-    // Fetch the product page
-    const response = await axios.get(url, options);
+    // Direct approach using Axios
+    let response;
+    try {
+      // Try to use the proxy first
+      response = await axios.get(url, options);
+    } catch (error: any) {
+      console.log(`Proxy request failed: ${error.message}`);
+      
+      // If proxy fails, try a direct request with modified headers but without proxy
+      const directOptions = {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.9',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
+          'Sec-Ch-Ua': '"Not A(Brand";v="99", "Google Chrome";v="121", "Chromium";v="121"',
+          'Sec-Ch-Ua-Mobile': '?0',
+          'Sec-Ch-Ua-Platform': '"Windows"',
+          'Sec-Fetch-Dest': 'document',
+          'Sec-Fetch-Mode': 'navigate',
+          'Sec-Fetch-Site': 'none',
+          'Sec-Fetch-User': '?1',
+          'Upgrade-Insecure-Requests': '1',
+          'Referer': 'https://www.google.com/'
+        },
+        maxRedirects: 5,
+        timeout: 30000
+      };
+      
+      response = await axios.get(url, directOptions);
+    }
+
+    if (!response.data) {
+      throw new Error('No data received from Amazon');
+    }
+
     const $ = cheerio.load(response.data);
 
     // Extract the product title
-    const title = $('#productTitle').text().trim();
+    const title = $('#productTitle').text().trim() || $('.product-title-word-break').text().trim();
+    
+    if (!title) {
+      console.log('Failed to extract title, possible CAPTCHA or page structure change');
+      return null;
+    }
+    
     const currentPrice = extractPrice(
       $('.priceToPay span.a-price-whole'),
       $('.a.size.base.a-color-price'),
       $('.a-button-selected .a-color-base'),
+      $('.a-price .a-offscreen'),
+      $('#priceblock_ourprice'),
+      $('#priceblock_dealprice'),
     );
 
     const originalPrice = extractPrice(
@@ -74,52 +140,133 @@ export async function scrapeAmazonProduct(url: string) {
       $('.a-size-base.a-color-price')
     );
 
-    const outOfStock = $('#availability span').text().trim().toLowerCase() === 'currently unavailable';
+    const outOfStock = $('#availability span').text().trim().toLowerCase().includes('unavailable') || 
+                     $('#availability').text().trim().toLowerCase().includes('out of stock');
 
-    const images = 
-      $('#imgBlkFront').attr('data-a-dynamic-image') || 
-      $('#landingImage').attr('data-a-dynamic-image') ||
-      '{}'
+    let images = '{}';
+    try {
+      images = $('#imgBlkFront').attr('data-a-dynamic-image') || 
+              $('#landingImage').attr('data-a-dynamic-image') ||
+              $('#main-image').attr('data-a-dynamic-image') ||
+              '{}';
+    } catch (e) {
+      console.log('Error parsing image data:', e);
+    }
 
-    const imageUrls = Object.keys(JSON.parse(images));
+    let imageUrls: string[] = [];
+    try {
+      imageUrls = Object.keys(JSON.parse(images));
+      if (imageUrls.length === 0) {
+        // Try alternative selectors if the main ones fail
+        const imgSrc = $('img#landingImage').attr('src') || 
+                      $('img.a-dynamic-image').attr('src') || 
+                      $('img#main-image').attr('src');
+        if (imgSrc) {
+          imageUrls = [imgSrc];
+        }
+      }
+    } catch (e) {
+      console.log('Error extracting image URLs:', e);
+      // Try to get any image as fallback
+      const imgSrc = $('img#landingImage').attr('src') || $('img.a-dynamic-image').attr('src');
+      if (imgSrc) {
+        imageUrls = [imgSrc];
+      }
+    }
 
-    const currency = extractCurrency($('.a-price-symbol'))
-    const discountRate = $('.savingsPercentage').text().replace(/[-%]/g, "");
+    const currency = extractCurrency($('.a-price-symbol')) || '₹';
+    const discountRate = $('.savingsPercentage').text().replace(/[-%]/g, "") || 
+                       $('.discountText').text().replace(/[-%]/g, "") || 
+                       '0';
 
-    //const description = extractDescription($)
-    const description = extractDescription($); // Truncate to 200 characters
+    const description = extractDescription($);
 
-    const reviewsText = $('#acrCustomerReviewLink #acrCustomerReviewText').first().text().trim();
+    const reviewsText = $('#acrCustomerReviewLink #acrCustomerReviewText').first().text().trim() || 
+                      $('#acrCustomerReviewText').text().trim();
     const reviewsCountParsed = reviewsText ? parseInt(reviewsText.replace(/[^0-9]/g, '')) : 0;
     console.log("Extracted reviews count from Amazon:", reviewsCountParsed);
 
-    const ratingText = $('a.a-popover-trigger.a-declarative .a-size-base.a-color-base').first().text().trim();
+    const ratingText = $('a.a-popover-trigger.a-declarative .a-size-base.a-color-base').first().text().trim() || 
+                     $('#averageCustomerReviews .a-icon-alt').text().trim().split(' ')[0] || 
+                     '0';
     const ratingParsed = ratingText ? parseFloat(ratingText) : 0;
     console.log("Extracted rating from Amazon:", ratingParsed);
+
+    // Parse and validate prices
+    // For currentPrice, ensure it's a reasonable value
+    let validCurrentPrice = Number(currentPrice) || 0;
+    if (validCurrentPrice > 1000000) {
+      // If price is unusually large, it might be a parsing error
+      console.log(`Warning: Unusually large current price detected: ${validCurrentPrice}. Attempting to fix.`);
+      
+      // Try to fix by dividing by powers of 10 if ends with zeros
+      if (validCurrentPrice % 10 === 0) {
+        let divisor = 10;
+        while (validCurrentPrice / divisor > 100000 && divisor < 1000000) {
+          divisor *= 10;
+        }
+        validCurrentPrice = validCurrentPrice / divisor;
+      } else {
+        // Alternative fix: try to parse just first 5 digits
+        const priceStr = validCurrentPrice.toString();
+        if (priceStr.length > 5) {
+          validCurrentPrice = parseInt(priceStr.substring(0, 5));
+        }
+      }
+      console.log(`Fixed current price: ${validCurrentPrice}`);
+    }
+    
+    // For originalPrice, similar validation
+    let validOriginalPrice = Number(originalPrice) || validCurrentPrice;
+    if (validOriginalPrice > 1000000) {
+      console.log(`Warning: Unusually large original price detected: ${validOriginalPrice}. Attempting to fix.`);
+      
+      // Try to fix by dividing by powers of 10 if ends with zeros
+      if (validOriginalPrice % 10 === 0) {
+        let divisor = 10;
+        while (validOriginalPrice / divisor > 100000 && divisor < 1000000) {
+          divisor *= 10;
+        }
+        validOriginalPrice = validOriginalPrice / divisor;
+      } else {
+        // Alternative fix: try to parse just first 5 digits
+        const priceStr = validOriginalPrice.toString();
+        if (priceStr.length > 5) {
+          validOriginalPrice = parseInt(priceStr.substring(0, 5));
+        }
+      }
+      console.log(`Fixed original price: ${validOriginalPrice}`);
+    }
+    
+    // Ensure original price is >= current price unless there's a special deal
+    if (validOriginalPrice < validCurrentPrice) {
+      validOriginalPrice = validCurrentPrice;
+    }
 
     // Construct data object with scraped information
     const data = {
       url,
-      currency: currency || '$',
-      image: imageUrls[0],
-      title,
-      currentPrice: Number(currentPrice) || Number(originalPrice),
-      originalPrice: Number(originalPrice) || Number(currentPrice),
+      currency: currency || '₹',
+      image: imageUrls[0] || '',
+      title: title || 'Product Title Not Available',
+      currentPrice: validCurrentPrice,
+      originalPrice: validOriginalPrice,
       priceHistory: [],
-      discountRate: Number(discountRate),
+      discountRate: Number(discountRate) || 0,
       category: 'category',
-      reviewsCount: reviewsCountParsed, // updated reviewsCount from Amazon
-      stars: ratingParsed,  // updated rating from Amazon element
+      reviewsCount: reviewsCountParsed || 0,
+      stars: ratingParsed || 0,
       isOutOfStock: outOfStock,
-      description,
-      lowestPrice: Number(currentPrice) || Number(originalPrice),
-      highestPrice: Number(originalPrice) || Number(currentPrice),
-      averagePrice: Number(currentPrice)/2 + Number(originalPrice)/2,
+      description: description || 'No description available',
+      lowestPrice: validCurrentPrice,
+      highestPrice: validOriginalPrice,
+      averagePrice: (validCurrentPrice + validOriginalPrice) / 2,
     }
 
     return data;
   } catch (error: any) {
-    console.log(error);
+    console.log(`Scraping failed for URL ${url}:`, error.message);
+    return null;
   }
 }
 
