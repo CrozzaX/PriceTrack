@@ -3,15 +3,16 @@ import { connectToAuthDB } from '@/lib/mongoose/auth';
 import { verifyToken } from '@/lib/utils/auth';
 
 export async function DELETE(
-  req: NextRequest,
-  { params }: { params: { productId: string } }
+  request: NextRequest,
+  { params }: { params: Promise<{ productId: string }> }
 ) {
   try {
-    // Get product ID from route params - properly await params
-    const { productId } = params;
+    // Wait for params to resolve
+    const resolvedParams = await params;
+    const productId = resolvedParams.productId;
     
     // Verify authentication
-    const userId = await verifyToken(req);
+    const userId = await verifyToken(request);
     if (!userId) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }

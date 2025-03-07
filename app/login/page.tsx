@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
@@ -8,7 +8,8 @@ import Cookies from 'js-cookie';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 
-export default function LoginPage() {
+// Login form component that uses useSearchParams
+function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const showSignup = searchParams.get('signup') === 'true';
@@ -98,13 +99,26 @@ export default function LoginPage() {
       // Get user details from session
       const { user } = session;
       
+      // Process profile image URL to use our proxy
+      let profileImage = user.user_metadata?.avatar_url || user.user_metadata?.picture;
+      
+      // If it's a Google image URL, use our proxy
+      if (profileImage && (
+        profileImage.includes('googleusercontent.com') || 
+        profileImage.includes('googleapis.com')
+      )) {
+        // Encode the URL and pass it through our proxy
+        const encodedUrl = encodeURIComponent(profileImage);
+        profileImage = `/api/user/image-proxy?url=${encodedUrl}`;
+      }
+      
       // Create user data object
       const userData = {
         id: user.id,
         email: user.email,
         name: user.user_metadata?.full_name || user.user_metadata?.name || user.email,
-        avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture,
-        profileImage: user.user_metadata?.avatar_url || user.user_metadata?.picture,
+        avatar_url: profileImage,
+        profileImage: profileImage,
         provider: user.app_metadata?.provider,
         role: 'authenticated'
       };
@@ -124,10 +138,19 @@ export default function LoginPage() {
       // Use a custom event to ensure it's captured
       window.dispatchEvent(new Event('storage'));
       
-      // Force a refresh of the navbar by dispatching another event after a short delay
+      // Force multiple refreshes of the navbar by dispatching events at intervals
+      // This ensures components have time to initialize and capture the events
       setTimeout(() => {
         window.dispatchEvent(new Event('storage'));
       }, 100);
+      
+      setTimeout(() => {
+        window.dispatchEvent(new Event('storage'));
+      }, 500);
+      
+      setTimeout(() => {
+        window.dispatchEvent(new Event('storage'));
+      }, 1000);
       
       // Show success message and redirect
       showMessage(true, 'Login successful! Redirecting to products...');
@@ -485,5 +508,27 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// Loading fallback
+function LoginLoading() {
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center p-6">
+      <div className="w-full max-w-md animate-pulse">
+        <div className="h-8 bg-gray-200 rounded mb-8 mx-auto w-32"></div>
+        <div className="h-64 bg-gray-200 rounded-lg mb-4 w-full"></div>
+        <div className="h-12 bg-gray-200 rounded-lg w-full"></div>
+      </div>
+    </div>
+  );
+}
+
+// Main export - wrapped in Suspense
+export default function LoginPage() {
+  return (
+    <Suspense fallback={<LoginLoading />}>
+      <LoginForm />
+    </Suspense>
   );
 } 

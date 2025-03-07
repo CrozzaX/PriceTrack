@@ -59,13 +59,31 @@ export async function GET(request: Request) {
           const productInfo = {
             title: updatedProduct.title,
             url: updatedProduct.url,
+            image: updatedProduct.image,
+            currency: updatedProduct.currency,
+            currentPrice: updatedProduct.currentPrice,
+            originalPrice: updatedProduct.originalPrice,
+            discountRate: updatedProduct.discountRate,
+            isOutOfStock: updatedProduct.isOutOfStock
           };
           // Construct emailContent
           const emailContent = await generateEmailBody(productInfo, emailNotifType);
           // Get array of user emails
           const userEmails = updatedProduct.users.map((user: any) => user.email);
-          // Send email notification
-          await sendEmail(emailContent, userEmails);
+          
+          // Send email notification with better error handling
+          try {
+            const emailResult = await sendEmail(emailContent, userEmails);
+            
+            if (emailResult.success) {
+              console.log(`Price alert email sent to ${userEmails.length} users for ${updatedProduct.title}`);
+            } else {
+              console.warn(`Failed to send price alert email: ${emailResult.error}`);
+            }
+          } catch (emailError) {
+            console.error(`Error in email sending process for product ${updatedProduct.title}:`, emailError);
+            // Continue with product updates even if email fails
+          }
         }
 
         return updatedProduct;

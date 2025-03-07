@@ -1,10 +1,11 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 
-const GoogleAuthHandler = () => {
+// Component that uses useSearchParams
+function GoogleAuthHandlerContent() {
   const searchParams = useSearchParams();
   const isGoogleAuth = searchParams.get('auth') === 'google';
   
@@ -28,13 +29,26 @@ const GoogleAuthHandler = () => {
             // Get user details from session
             const { user } = session;
             
+            // Process profile image URL to use our proxy
+            let profileImage = user.user_metadata?.avatar_url || user.user_metadata?.picture;
+            
+            // If it's a Google image URL, use our proxy
+            if (profileImage && (
+              profileImage.includes('googleusercontent.com') || 
+              profileImage.includes('googleapis.com')
+            )) {
+              // Encode the URL and pass it through our proxy
+              const encodedUrl = encodeURIComponent(profileImage);
+              profileImage = `/api/user/image-proxy?url=${encodedUrl}`;
+            }
+            
             // Create user data object
             const userData = {
               id: user.id,
               email: user.email,
               name: user.user_metadata?.full_name || user.user_metadata?.name || user.email,
-              avatar_url: user.user_metadata?.avatar_url || user.user_metadata?.picture,
-              profileImage: user.user_metadata?.avatar_url || user.user_metadata?.picture,
+              avatar_url: profileImage,
+              profileImage: profileImage,
               provider: user.app_metadata?.provider,
               role: 'authenticated'
             };
@@ -72,6 +86,15 @@ const GoogleAuthHandler = () => {
   
   // This component doesn't render anything
   return null;
+}
+
+// Main component wrapped in Suspense
+const GoogleAuthHandler = () => {
+  return (
+    <Suspense fallback={null}>
+      <GoogleAuthHandlerContent />
+    </Suspense>
+  );
 };
 
 export default GoogleAuthHandler; 

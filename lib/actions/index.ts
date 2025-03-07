@@ -165,47 +165,94 @@ export async function scrapeAndStoreProduct(productUrl: string) {
 
 export async function addUserEmailToProduct(productId: string, userEmail: string) {
   try {
+    console.log(`Starting to add email ${userEmail} to product ${productId}...`);
     connectToDB();
     
     const product = await Product.findById(productId);
 
-    if (!product) return;
+    if (!product) {
+      console.error(`Product not found with ID: ${productId}`);
+      return {
+        success: false,
+        message: 'Product not found',
+        isAlreadyTracking: false,
+        product: null
+      };
+    }
 
+    console.log(`Found product: ${product.title}`);
     const userExists = product.users.some((user: any) => user.email === userEmail);
+    
+    let emailSent = false;
+    let emailError = null;
 
     if (!userExists) {
       // Add user email to product
+      console.log(`Adding ${userEmail} to product users list...`);
       product.users.push({ email: userEmail });
       await product.save();
+      console.log(`User saved to product successfully.`);
       
-      // Send welcome email
+      // Send welcome email - with better handling
+      console.log(`Preparing to send welcome email...`);
+      
       try {
         // Import email functions
         const { generateEmailBody, sendEmail } = await import('@/lib/nodemailer');
         
-        // Create email content
+        console.log(`Generating email content for ${product.title}...`);
+        // Create email content with extended product info
         const emailContent = await generateEmailBody(
           {
             title: product.title,
             url: product.url,
+            image: product.image,
+            currency: product.currency,
+            currentPrice: product.currentPrice,
+            originalPrice: product.originalPrice || product.currentPrice,
+            discountRate: product.discountRate || 0,
+            isOutOfStock: product.isOutOfStock || false
           },
           'WELCOME'
         );
         
+        console.log(`Sending welcome email to ${userEmail}...`);
         // Send the welcome email
-        await sendEmail(emailContent, [userEmail]);
+        const emailResult = await sendEmail(emailContent, [userEmail]);
         
-        console.log(`Welcome email sent to ${userEmail} for product ${product.title}`);
+        if (emailResult.success) {
+          console.log(`Welcome email sent successfully to ${userEmail} for product ${product.title}`);
+          emailSent = true;
+        } else {
+          console.warn(`Welcome email failed to send: ${emailResult.error}`);
+          emailError = emailResult.error;
+          // We continue processing even if email fails
+        }
       } catch (emailError) {
-        console.error('Error sending welcome email:', emailError);
+        console.error('Error in email sending process:', emailError);
         // Don't throw here, we still want to return the product even if email fails
       }
+    } else {
+      console.log(`User ${userEmail} is already tracking this product.`);
     }
 
     revalidatePath(`/products/${productId}`);
-    return serializeMongoDocument(product.toObject());
+    return {
+      success: true,
+      message: userExists ? 'Already tracking this product' : 'Product tracking enabled',
+      isAlreadyTracking: userExists,
+      emailSent,
+      emailError,
+      product: serializeMongoDocument(product.toObject())
+    };
   } catch (error) {
     console.log('Error in addUserEmailToProduct:', error);
-    throw new Error('Failed to add user email to product');
+    return {
+      success: false,
+      message: 'Failed to add user email to product',
+      isAlreadyTracking: false,
+      emailSent: false,
+      error
+    };
   }
 }

@@ -14,70 +14,100 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+// Cache valid user IDs to reduce DB lookups
+const userEmailToIdCache = new Map<string, string>();
+
 export async function verifyToken(req: NextRequest): Promise<string | null> {
   try {
     // Get token from Authorization header
     const authHeader = req.headers.get('Authorization');
-    if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      return null;
-    }
+    let token;
     
-    const token = authHeader.split(' ')[1];
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+    } else {
+      // If no Authorization header, try to get token from cookies or other headers
+      const cookies = req.cookies;
+      token = cookies.get('token')?.value;
+      
+      if (!token) {
+        return null;
+      }
+    }
+
+    // Try to decode token first to extract user email for caching
+    try {
+      // Just decode, don't verify
+      const decodedPayload = token.split('.')[1];
+      if (decodedPayload) {
+        const decoded = JSON.parse(Buffer.from(decodedPayload, 'base64').toString());
+        if (decoded.email) {
+          // Check if we have this email in our cache
+          if (userEmailToIdCache.has(decoded.email)) {
+            return userEmailToIdCache.get(decoded.email)!;
+          }
+        }
+      }
+    } catch (decodeError) {
+      // Silently continue if decoding fails
+    }
     
     // First try to verify as a regular JWT token
     try {
       const decoded = jwt.verify(token, JWT_SECRET) as { id: string };
       return decoded.id;
     } catch (jwtError) {
-      // If JWT verification fails, check if it's a JWT token from our OAuth registration
-      try {
-        // The token might be our own JWT token from register-oauth
-        if (token.split('.').length === 3) { // Simple check for JWT format
-          try {
-            const decoded = jwt.verify(token, JWT_SECRET) as { id: string };
-            return decoded.id;
-          } catch (error) {
-            // Not our JWT token, continue to Supabase check
+      // Silent fail, just move to Supabase
+    }
+    
+    // If JWT verification fails, try Supabase
+    try {
+      // Try to get the user from Supabase
+      const { data, error } = await supabase.auth.getUser(token);
+      
+      if (error) {
+        // If token is expired, try decoding it to extract email
+        try {
+          // This just decodes without verifying (which is fine for getting the email)
+          const payload = token.split('.')[1];
+          if (payload) {
+            const decoded = JSON.parse(atob(payload));
+            if (decoded.email) {
+              // Find user by email in our database
+              const userId = await getUserIdByEmail(decoded.email);
+              if (userId) {
+                // Cache the result
+                userEmailToIdCache.set(decoded.email, userId);
+              }
+              return userId;
+            }
           }
+        } catch (decodeError) {
+          // Silent fail
         }
         
-        // Try to verify as a Supabase token
-        try {
-          const { data, error } = await supabase.auth.getUser(token);
-          
-          if (error) {
-            // If token is expired, try to find user by token in our database
-            if (error.message.includes('expired') || error.message.includes('invalid')) {
-              return await getUserIdByToken(token);
-            }
-            
-            console.error('Supabase token verification failed:', error);
-            return null;
-          }
-          
-          if (!data.user) {
-            console.error('No user found in Supabase data');
-            return null;
-          }
-          
-          // Get user email from Supabase
-          const email = data.user.email;
-          if (!email) {
-            console.error('No email found in Supabase user data');
-            return null;
-          }
-          
-          // Find user in MongoDB by email
-          const userId = await getUserIdByEmail(email);
-          return userId;
-        } catch (supabaseError) {
-          // If Supabase verification fails, try to find user by token in our database
-          return await getUserIdByToken(token);
-        }
-      } catch (supabaseError) {
-        console.error('Error verifying Supabase token:', supabaseError);
         return null;
       }
+      
+      if (!data.user) {
+        return null;
+      }
+      
+      // Get user email from Supabase
+      const email = data.user.email;
+      if (!email) {
+        return null;
+      }
+      
+      // Find user in MongoDB by email
+      const userId = await getUserIdByEmail(email);
+      if (userId) {
+        // Cache the result
+        userEmailToIdCache.set(email, userId);
+      }
+      return userId;
+    } catch (supabaseError) {
+      return null;
     }
   } catch (error) {
     console.error('Error verifying token:', error);
@@ -93,7 +123,6 @@ async function getUserIdByEmail(email: string): Promise<string | null> {
     
     const user = await User.findOne({ email });
     if (!user) {
-      console.error('User not found with email:', email);
       return null;
     }
     
@@ -122,10 +151,9 @@ async function getUserIdByToken(token: string): Promise<string | null> {
           return await getUserIdByEmail(decoded.email);
         }
       } catch (decodeError) {
-        console.error('Error decoding token:', decodeError);
+        // Silent fail
       }
       
-      console.error('User not found with token');
       return null;
     }
     
