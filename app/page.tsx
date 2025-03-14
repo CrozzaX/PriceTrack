@@ -2,6 +2,7 @@
 
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import PricingSection from '@/components/subscription/PricingSection';
 
 export default function Home() {
   // Animation variants
@@ -181,6 +182,9 @@ export default function Home() {
               </motion.div>
             </motion.div>
           </section>
+
+          {/* Subscription Plans Section */}
+          <PricingSection />
         </main>
       </div>
     </div>

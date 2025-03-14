@@ -2,9 +2,9 @@ import Image from 'next/image';
 
 interface PriceStatsProps {
   currentPrice: number;
-  averagePrice: number;
-  highestPrice: number;
-  lowestPrice: number;
+  averagePrice?: number;
+  highestPrice?: number;
+  lowestPrice?: number;
   currency?: string;
 }
 
@@ -13,8 +13,14 @@ const PriceStats = ({
   averagePrice, 
   highestPrice, 
   lowestPrice, 
-  currency = '₹'
+  currency = '$'
 }: PriceStatsProps) => {
+  // Format price with fallback for undefined values
+  const formatPrice = (price?: number) => {
+    if (price === undefined || isNaN(price)) return 'N/A';
+    return price.toLocaleString();
+  };
+
   return (
     <div className="grid grid-cols-2 gap-4">
       <div className="bg-gray-50 p-4 rounded-xl">
@@ -27,7 +33,7 @@ const PriceStats = ({
             height={24}
           />
           <span className="text-xl font-semibold text-gray-900">
-            {currency} {currentPrice.toLocaleString()}
+            {currency} {formatPrice(currentPrice)}
           </span>
         </div>
       </div>
@@ -42,7 +48,7 @@ const PriceStats = ({
             height={24}
           />
           <span className="text-xl font-semibold text-gray-900">
-            {currency} {averagePrice.toLocaleString()}
+            {currency} {formatPrice(averagePrice)}
           </span>
         </div>
       </div>
@@ -57,7 +63,7 @@ const PriceStats = ({
             height={24}
           />
           <span className="text-xl font-semibold text-gray-900">
-            {currency} {highestPrice.toLocaleString()}
+            {currency} {formatPrice(highestPrice)}
           </span>
         </div>
       </div>
@@ -72,7 +78,7 @@ const PriceStats = ({
             height={24}
           />
           <span className="text-xl font-semibold text-gray-900">
-            {currency} {lowestPrice.toLocaleString()}
+            {currency} {formatPrice(lowestPrice)}
           </span>
         </div>
       </div>

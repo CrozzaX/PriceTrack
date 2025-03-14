@@ -1,27 +1,58 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
+import { useAuth } from '@/lib/context/AuthContext';
+import SubscriptionCard from '@/components/subscription/SubscriptionCard';
+import TransactionHistory from '@/components/subscription/TransactionHistory';
 
 export default function Dashboard() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const message = searchParams ? searchParams.get('message') : null;
+  const { user, subscription, isLoading: authLoading } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [isMounted, setIsMounted] = useState(false);
+  const [notification, setNotification] = useState<string | null>(null);
 
   useEffect(() => {
     setIsMounted(true);
     
-    // Check authentication
+    // Check for token in localStorage first
     const token = localStorage.getItem('token');
-    if (!token) {
-      router.push('/login');
+    const storedUser = localStorage.getItem('user');
+    
+    console.log('Dashboard - Local Storage Check:', { 
+      hasToken: !!token, 
+      hasUser: !!storedUser,
+      authContextUser: !!user,
+      authLoading
+    });
+    
+    // Only redirect if we're sure the user is not authenticated through any method
+    // Don't redirect while still loading auth state
+    if (!authLoading && !user && !token) {
+      console.log('Dashboard - Redirecting to login: No authentication found');
+      router.push('/login?redirectTo=/dashboard');
       return;
     }
     
-    setIsLoading(false);
-  }, [router]);
+    // If we have a user, token, or we're still loading, just update loading state
+    if (isMounted) {
+      setIsLoading(false);
+    }
+
+    // Set notification message if present in URL
+    if (message) {
+      setNotification(message);
+      // Clear the message from URL after displaying it
+      const url = new URL(window.location.href);
+      url.searchParams.delete('message');
+      window.history.replaceState({}, '', url.toString());
+    }
+  }, [router, user, authLoading, isMounted, message]);
 
   // Animation variants for staggered children
   const containerVariants = {
@@ -29,77 +60,85 @@ export default function Dashboard() {
     visible: {
       opacity: 1,
       transition: {
-        staggerChildren: 0.15
+        staggerChildren: 0.1
       }
     }
   };
 
   const itemVariants = {
-    hidden: { 
-      y: 20, 
-      opacity: 0,
-      scale: 0.95
-    },
-    visible: { 
-      y: 0, 
-      opacity: 1,
-      scale: 1,
-      transition: {
-        type: "spring",
-        stiffness: 260,
-        damping: 20
-      }
-    },
-    hover: {
-      y: -5,
-      scale: 1.03,
-      boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)",
-      transition: {
-        type: "spring",
-        stiffness: 400,
-        damping: 10
-      }
+    hidden: { y: 20, opacity: 0 },
+    visible: {
+      y: 0,
+      opacity: 1
     }
   };
 
-  // Only render content on client-side to avoid hydration issues
   if (!isMounted || isLoading) {
-    return (
-      <div className="flex justify-center py-10">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#FF7559]"></div>
-      </div>
-    );
+    return <div className="flex justify-center items-center h-[70vh]">Loading...</div>;
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      transition={{ duration: 0.5 }}
-    >
-      <motion.h1 
-        className="text-2xl font-bold mb-6"
-        initial={{ opacity: 0, y: -20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.1, duration: 0.5 }}
-      >
-        Dashboard
-      </motion.h1>
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="text-2xl font-bold mb-6">Dashboard</h1>
       
-      <motion.p 
-        className="text-gray-600 mb-4"
-        initial={{ opacity: 0, y: -10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: 0.2, duration: 0.5 }}
-      >
-        Welcome to your PriceWise dashboard. Monitor your saved products and manage your profile from here.
-      </motion.p>
+      {notification && (
+        <div className="bg-amber-50 border border-amber-200 text-amber-800 px-4 py-3 rounded-md mb-6 flex justify-between items-center">
+          <p>{notification}</p>
+          <button 
+            onClick={() => setNotification(null)}
+            className="text-amber-800 hover:text-amber-900"
+          >
+            &times;
+          </button>
+        </div>
+      )}
+      
+      <div className="grid md:grid-cols-2 gap-8 mb-12">
+        <motion.div 
+          className="bg-white p-6 rounded-lg shadow-md"
+          variants={itemVariants}
+        >
+          <h2 className="text-xl font-semibold mb-4">Account Information</h2>
+          <div className="space-y-4">
+            <div>
+              <span className="text-gray-500">Email:</span>
+              <p>{user?.email || (localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user') || '{}').email : '')}</p>
+            </div>
+          </div>
+        </motion.div>
+        
+        <motion.div 
+          className="bg-white p-6 rounded-lg shadow-md"
+          variants={itemVariants}
+        >
+          <h2 className="text-xl font-semibold mb-4">Your Subscription</h2>
+          {subscription ? (
+            <SubscriptionCard subscription={subscription} />
+          ) : (
+            <div>
+              <p className="mb-4">You don't have an active subscription.</p>
+              <Link href="/subscription" className="text-indigo-600 font-medium hover:underline">
+                Browse Plans
+              </Link>
+            </div>
+          )}
+        </motion.div>
+      </div>
       
       <motion.div 
-        className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-8"
+        className="bg-white p-6 rounded-lg shadow-md mb-8"
+        variants={itemVariants}
+      >
+        <h2 className="text-xl font-semibold mb-4">Transaction History</h2>
+        <TransactionHistory />
+      </motion.div>
+      
+      {/* Rest of the dashboard content */}
+      <motion.div
         variants={containerVariants}
         initial="hidden"
         animate="visible"
+        className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
       >
         <motion.div 
           className="bg-blue-50 p-6 rounded-lg cursor-pointer"
@@ -180,7 +219,47 @@ export default function Dashboard() {
             </motion.span>
           </Link>
         </motion.div>
+        
+        <motion.div 
+          className="bg-indigo-50 p-6 rounded-lg cursor-pointer"
+          variants={itemVariants}
+          whileHover="hover"
+        >
+          <h2 className="text-lg font-semibold mb-2">Premium Features</h2>
+          <p className="text-gray-600 mb-4">Explore premium subscription benefits</p>
+          <Link href="/premium-features" className="text-indigo-600 hover:underline group flex items-center">
+            View Premium Features 
+            <motion.span 
+              className="inline-block ml-1"
+              initial={{ x: 0 }}
+              whileHover={{ x: 5 }}
+              transition={{ type: "spring", stiffness: 400 }}
+            >
+              →
+            </motion.span>
+          </Link>
+        </motion.div>
+        
+        <motion.div 
+          className="bg-teal-50 p-6 rounded-lg cursor-pointer"
+          variants={itemVariants}
+          whileHover="hover"
+        >
+          <h2 className="text-lg font-semibold mb-2">Business Features</h2>
+          <p className="text-gray-600 mb-4">Discover our enterprise-grade solutions</p>
+          <Link href="/business-features" className="text-teal-600 hover:underline group flex items-center">
+            View Business Features 
+            <motion.span 
+              className="inline-block ml-1"
+              initial={{ x: 0 }}
+              whileHover={{ x: 5 }}
+              transition={{ type: "spring", stiffness: 400 }}
+            >
+              →
+            </motion.span>
+          </Link>
+        </motion.div>
       </motion.div>
-    </motion.div>
+    </div>
   );
 } 

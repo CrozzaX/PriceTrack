@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode, useRef } from 'react';
 import Cookies from 'js-cookie';
 import { Product } from '@/types';
 
@@ -24,9 +24,22 @@ interface SavedProductsContextType {
 
 const SavedProductsContext = createContext<SavedProductsContextType | undefined>(undefined);
 
-// Cache control constants
-const CACHE_DURATION = 60000; // 1 minute in milliseconds
+// Cache control constants - increased to reduce API calls
+const CACHE_DURATION = 300000; // 5 minutes in milliseconds (increased from 1 minute)
 const CACHE_KEY = 'savedProductsCache';
+
+// Debounce function to prevent rapid successive API calls
+function debounce<T extends (...args: any[]) => any>(
+  func: T,
+  wait: number
+): (...args: Parameters<T>) => void {
+  let timeout: NodeJS.Timeout | null = null;
+  
+  return function(...args: Parameters<T>) {
+    if (timeout) clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), wait);
+  };
+}
 
 export function SavedProductsProvider({ children }: { children: ReactNode }) {
   const [savedProducts, setSavedProducts] = useState<SavedProduct[]>([]);
@@ -34,7 +47,8 @@ export function SavedProductsProvider({ children }: { children: ReactNode }) {
   const [error, setError] = useState<string | null>(null);
   const [lastUpdated, setLastUpdated] = useState<number>(0);
   const [isInitialized, setIsInitialized] = useState(false);
-  const [fetchInProgress, setFetchInProgress] = useState(false);
+  const fetchInProgressRef = useRef(false);
+  const lastFetchTimeRef = useRef<number>(0);
 
   // Try to load from cache first
   useEffect(() => {
@@ -50,6 +64,7 @@ export function SavedProductsProvider({ children }: { children: ReactNode }) {
             setSavedProducts(products);
             setLastUpdated(timestamp);
             setIsLoading(false);
+            lastFetchTimeRef.current = timestamp;
           }
         }
       } catch (error) {
@@ -61,10 +76,17 @@ export function SavedProductsProvider({ children }: { children: ReactNode }) {
 
   const fetchSavedProducts = useCallback(async (forceRefresh = false) => {
     // Prevent multiple simultaneous fetches
-    if (fetchInProgress) return;
+    if (fetchInProgressRef.current) return;
+    
+    // Check if we've fetched recently (unless forced refresh)
+    const now = Date.now();
+    if (!forceRefresh && now - lastFetchTimeRef.current < CACHE_DURATION) {
+      setIsLoading(false);
+      return;
+    }
     
     try {
-      setFetchInProgress(true);
+      fetchInProgressRef.current = true;
       setIsLoading(true);
       
       const token = localStorage.getItem('token') || Cookies.get('token');
@@ -73,24 +95,6 @@ export function SavedProductsProvider({ children }: { children: ReactNode }) {
         setIsLoading(false);
         setError('Authentication required. Please sign in.');
         return;
-      }
-
-      // Check cache timestamp unless forced refresh
-      if (!forceRefresh) {
-        const lastFetchTime = localStorage.getItem('savedProductsLastFetch');
-        const now = Date.now();
-        
-        // Only fetch if it's been more than 60 seconds since the last fetch
-        // or if we don't have any saved products yet
-        if (
-          lastFetchTime && 
-          savedProducts.length > 0 && 
-          now - parseInt(lastFetchTime) < CACHE_DURATION
-        ) {
-          setIsLoading(false);
-          setFetchInProgress(false);
-          return;
-        }
       }
 
       const controller = new AbortController();
@@ -108,18 +112,15 @@ export function SavedProductsProvider({ children }: { children: ReactNode }) {
 
       if (response.ok) {
         const data = await response.json();
-        setSavedProducts(data.products);
+        setSavedProducts(data.products || []);
         
-        const now = Date.now();
+        lastFetchTimeRef.current = now;
         setLastUpdated(now);
         setError(null); // Clear any previous errors
         
-        // Store the fetch timestamp
-        localStorage.setItem('savedProductsLastFetch', now.toString());
-        
         // Cache the products data
         localStorage.setItem(CACHE_KEY, JSON.stringify({
-          products: data.products,
+          products: data.products || [],
           timestamp: now
         }));
       } else {
@@ -146,11 +147,17 @@ export function SavedProductsProvider({ children }: { children: ReactNode }) {
       setSavedProducts([]);
     } finally {
       setIsLoading(false);
-      setFetchInProgress(false);
+      fetchInProgressRef.current = false;
     }
-  }, [savedProducts.length]);
+  }, []);
 
-  // Initialize saved products on mount
+  // Debounced version of fetchSavedProducts to prevent rapid API calls
+  const debouncedFetchSavedProducts = useCallback(
+    debounce((forceRefresh: boolean) => fetchSavedProducts(forceRefresh), 300),
+    [fetchSavedProducts]
+  );
+
+  // Initialize saved products on mount - only once
   useEffect(() => {
     if (typeof window !== 'undefined' && !isInitialized) {
       setIsInitialized(true);
@@ -158,24 +165,36 @@ export function SavedProductsProvider({ children }: { children: ReactNode }) {
       // Check for authentication token
       const token = localStorage.getItem('token') || Cookies.get('token');
       if (token) {
-        // Immediately fetch saved products
-        fetchSavedProducts();
+        // Fetch saved products only if cache is expired or empty
+        const cachedData = localStorage.getItem(CACHE_KEY);
+        if (!cachedData) {
+          fetchSavedProducts(false);
+        } else {
+          try {
+            const { timestamp } = JSON.parse(cachedData);
+            const now = Date.now();
+            if (now - timestamp >= CACHE_DURATION) {
+              fetchSavedProducts(false);
+            }
+          } catch (error) {
+            fetchSavedProducts(false);
+          }
+        }
         
-        // Set up event listeners for auth changes
+        // Set up event listener for auth changes - use a single listener
         const handleAuthChange = () => {
           const currentToken = localStorage.getItem('token') || Cookies.get('token');
           if (currentToken) {
-            fetchSavedProducts();
+            debouncedFetchSavedProducts(false);
           } else {
             setSavedProducts([]);
           }
         };
         
-        window.addEventListener('storage', handleAuthChange);
+        // Use a custom event instead of storage event to reduce unnecessary calls
         window.addEventListener('authchange', handleAuthChange);
         
         return () => {
-          window.removeEventListener('storage', handleAuthChange);
           window.removeEventListener('authchange', handleAuthChange);
         };
       } else {
@@ -184,7 +203,7 @@ export function SavedProductsProvider({ children }: { children: ReactNode }) {
         setIsLoading(false);
       }
     }
-  }, [fetchSavedProducts, isInitialized]);
+  }, [fetchSavedProducts, debouncedFetchSavedProducts, isInitialized]);
 
   // Check if a product is saved - use memory cache to avoid API calls
   const checkIfProductIsSaved = useCallback((productId: string) => {
@@ -198,6 +217,11 @@ export function SavedProductsProvider({ children }: { children: ReactNode }) {
       if (!token) {
         setError('Authentication required');
         return false;
+      }
+
+      // Check if product is already saved in local state to avoid unnecessary API calls
+      if (savedProducts.some(product => product._id === productId)) {
+        return true; // Product is already saved, no need for API call
       }
 
       const response = await fetch('/api/user/saved-products', {
@@ -216,16 +240,8 @@ export function SavedProductsProvider({ children }: { children: ReactNode }) {
         if (data.savedProduct || data.alreadySaved) {
           // Update the local cache immediately without API call
           if (!data.alreadySaved && data.savedProduct) {
-            const now = Date.now();
-            // Find the product in our existing products to add to saved list
-            // This avoids an extra API call
-            const existingProducts = [...savedProducts];
-            
-            // Only refresh if the product isn't in the saved list
-            if (!existingProducts.some(p => p._id === productId)) {
-              // Force a refresh only if we need to
-              await fetchSavedProducts(true);
-            }
+            // Force a refresh only if we need to, but use debounced version
+            debouncedFetchSavedProducts(true);
           }
         }
         setLastUpdated(Date.now());
@@ -241,7 +257,7 @@ export function SavedProductsProvider({ children }: { children: ReactNode }) {
       setError(errorMessage);
       return false;
     }
-  }, [fetchSavedProducts, savedProducts]);
+  }, [debouncedFetchSavedProducts, savedProducts]);
 
   // Remove a product with local state update
   const removeProduct = useCallback(async (productId: string) => {
@@ -249,17 +265,9 @@ export function SavedProductsProvider({ children }: { children: ReactNode }) {
       const token = localStorage.getItem('token') || Cookies.get('token');
       if (!token) return false;
 
-      // Update local state first for better UX
-      const updatedProducts = savedProducts.filter(product => product._id !== productId);
-      setSavedProducts(updatedProducts);
-      
-      // Update cache
-      const now = Date.now();
-      localStorage.setItem(CACHE_KEY, JSON.stringify({
-        products: updatedProducts,
-        timestamp: now
-      }));
-      
+      // Optimistic update - remove from local state first
+      setSavedProducts(prev => prev.filter(product => product._id !== productId));
+
       const response = await fetch(`/api/user/saved-products/${productId}`, {
         method: 'DELETE',
         headers: {
@@ -268,22 +276,35 @@ export function SavedProductsProvider({ children }: { children: ReactNode }) {
       });
 
       if (response.ok) {
+        // Update timestamp but don't fetch again since we already updated local state
         setLastUpdated(Date.now());
+        setError(null);
+        
+        // Update the cache with our new state
+        const now = Date.now();
+        localStorage.setItem(CACHE_KEY, JSON.stringify({
+          products: savedProducts.filter(product => product._id !== productId),
+          timestamp: now
+        }));
+        
         return true;
       } else {
-        // Revert local state if API call fails
-        fetchSavedProducts(true);
+        // If the API call fails, revert our optimistic update
+        debouncedFetchSavedProducts(true);
+        const data = await response.json();
+        setError(data.message || 'Failed to remove product');
         return false;
       }
-    } catch (error) {
+    } catch (error: any) {
+      // If there's an error, refresh to get the correct state
+      debouncedFetchSavedProducts(true);
       console.error('Error removing product:', error);
-      // Revert on error
-      fetchSavedProducts(true);
+      setError(error?.message || 'Error removing product');
       return false;
     }
-  }, [savedProducts, fetchSavedProducts]);
+  }, [debouncedFetchSavedProducts, savedProducts]);
 
-  // Refresh saved products - force a refresh when explicitly called
+  // Public method to refresh saved products - use debounced version
   const refreshSavedProducts = useCallback(async () => {
     await fetchSavedProducts(true);
   }, [fetchSavedProducts]);

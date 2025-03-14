@@ -12,8 +12,8 @@ import { supabase } from '@/lib/supabase';
 function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const showSignup = searchParams.get('signup') === 'true';
-  const returnUrl = searchParams.get('returnUrl') || '/products';
+  const showSignup = searchParams?.get('signup') === 'true';
+  const redirectTo = searchParams?.get('redirectTo') || '/products';
   
   const [activeTab, setActiveTab] = useState(showSignup ? 'signup' : 'login');
   const [successMessage, setSuccessMessage] = useState('');
@@ -34,6 +34,7 @@ function LoginForm() {
       setSuccessMessage('');
     }
     
+    // Clear messages after 5 seconds
     setTimeout(() => {
       setSuccessMessage('');
       setErrorMessage('');
@@ -44,28 +45,16 @@ function LoginForm() {
   const handleGoogleSignIn = async () => {
     try {
       setIsLoading(true);
-      
-      // Create a custom event that will be dispatched when the user returns from Google OAuth
-      // Store it in sessionStorage so it persists through the redirect
-      sessionStorage.setItem('pendingGoogleAuth', 'true');
-      
-      const { data, error } = await supabase.auth.signInWithOAuth({
+      const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          },
-          redirectTo: `${window.location.origin}/products?auth=google`
+          redirectTo: `${window.location.origin}/api/auth/callback?redirectTo=${encodeURIComponent(redirectTo)}`,
         },
       });
-
-      if (error) {
-        showMessage(false, error.message);
-      }
-    } catch (error) {
-      showMessage(false, 'An error occurred during Google sign in');
-    } finally {
+      
+      if (error) throw error;
+    } catch (error: any) {
+      showMessage(false, error.message || 'Error signing in with Google');
       setIsLoading(false);
     }
   };
@@ -91,7 +80,7 @@ function LoginForm() {
     return () => {
       subscription.unsubscribe();
     };
-  }, [router]);
+  }, [router, redirectTo]);
 
   // Handle auth session
   const handleAuthSession = (session: Session) => {
@@ -152,10 +141,10 @@ function LoginForm() {
         window.dispatchEvent(new Event('storage'));
       }, 1000);
       
-      // Show success message and redirect
-      showMessage(true, 'Login successful! Redirecting to products...');
+      // Show success message and redirect to the intended destination
+      showMessage(true, `Login successful! Redirecting...`);
       setTimeout(() => {
-        router.push('/products');
+        router.push(redirectTo);
       }, 1500);
     } catch (error) {
       console.error('Error handling auth session:', error);
@@ -218,7 +207,7 @@ function LoginForm() {
       const data = await response.json();
       
       if (response.ok) {
-        showMessage(true, 'Login successful! Redirecting to products...');
+        showMessage(true, 'Login successful! Redirecting...');
         
         // Store token in both localStorage and cookie
         localStorage.setItem('token', data.token);
@@ -229,7 +218,7 @@ function LoginForm() {
         window.dispatchEvent(new Event('storage'));
         
         setTimeout(() => {
-          router.push('/products');
+          router.push(redirectTo);
         }, 1500);
       } else {
         showMessage(false, data.message || 'Invalid email or password. Please try again.');
@@ -264,7 +253,7 @@ function LoginForm() {
       const data = await response.json();
       
       if (response.ok) {
-        showMessage(true, 'Account created successfully! Redirecting to products...');
+        showMessage(true, 'Account created successfully! Redirecting...');
         
         // Store token in both localStorage and cookie
         localStorage.setItem('token', data.token);
@@ -275,7 +264,7 @@ function LoginForm() {
         window.dispatchEvent(new Event('storage'));
         
         setTimeout(() => {
-          router.push('/products');
+          router.push(redirectTo);
         }, 1500);
       } else {
         showMessage(false, data.message || 'Error creating account. Please try again.');
