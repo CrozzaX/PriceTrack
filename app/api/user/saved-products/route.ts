@@ -168,48 +168,8 @@ export async function POST(req: NextRequest) {
     
     await user.save();
     
-    // Update the saved products count in Supabase user metadata
-    try {
-      // Correctly query the auth.users table in the auth schema
-      const { data: authUser, error: authError } = await supabase
-        .from('auth.users')
-        .select('metadata')
-        .eq('id', userId)
-        .single();
-      
-      if (authError) {
-        console.error('Error fetching user metadata:', authError);
-        
-        // Try alternative approach using auth admin API
-        try {
-          const { data: userData, error: userError } = await supabase.auth.admin.getUserById(userId);
-          
-          if (!userError && userData?.user) {
-            const metadata = userData.user.user_metadata || {};
-            metadata.saved_products_count = (user.savedProducts || []).length;
-            
-            await supabase.auth.admin.updateUserById(userId, {
-              user_metadata: metadata
-            });
-          } else {
-            console.error('Error fetching user with admin API:', userError);
-          }
-        } catch (adminError) {
-          console.error('Error using admin API:', adminError);
-        }
-      } else if (authUser) {
-        const metadata = authUser.metadata || {};
-        metadata.saved_products_count = (user.savedProducts || []).length;
-        
-        await supabase.auth.admin.updateUserById(userId, {
-          user_metadata: metadata
-        });
-      }
-    } catch (metadataError) {
-      console.error('Error updating user metadata:', metadataError);
-      // Continue even if metadata update fails
-    }
-    
+    // Skip updating Supabase metadata since we don't have admin access
+    // Just return success response
     return NextResponse.json({ 
       message: 'Product saved successfully',
       savedProduct
@@ -235,6 +195,66 @@ export async function POST(req: NextRequest) {
     
     return NextResponse.json(
       { message: 'Server error saving product' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    // Get product ID from URL
+    const url = new URL(req.url);
+    const pathParts = url.pathname.split('/');
+    const productId = pathParts[pathParts.length - 1];
+    
+    if (!productId) {
+      return NextResponse.json(
+        { message: 'Product ID is required' },
+        { status: 400 }
+      );
+    }
+    
+    // Verify authentication
+    const userId = await verifyToken(req);
+    if (!userId) {
+      return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
+    }
+    
+    // Connect to the auth database
+    const authConn = await connectToAuthDB();
+    const User = authConn.model('User');
+    
+    // Get user
+    const user = await User.findById(userId);
+    if (!user) {
+      return NextResponse.json({ message: 'User not found' }, { status: 404 });
+    }
+    
+    // Check if product is saved
+    const productIndex = user.savedProducts.findIndex(
+      (item: SavedProduct) => item.productId.toString() === productId
+    );
+    
+    if (productIndex === -1) {
+      return NextResponse.json(
+        { message: 'Product not found in saved products' },
+        { status: 404 }
+      );
+    }
+    
+    // Remove product from savedProducts
+    user.savedProducts.splice(productIndex, 1);
+    
+    await user.save();
+    
+    return NextResponse.json({ 
+      message: 'Product removed successfully' 
+    });
+  } catch (error: any) {
+    console.error('Error in saved products DELETE route:', error);
+    
+    return NextResponse.json(
+      { message: 'Server error removing product' },
       { status: 500 }
     );
   }

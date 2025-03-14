@@ -165,16 +165,45 @@ export async function getUserSubscriptionWithFeatures(userId: string): Promise<{
 
     // Get user's active subscription
     try {
-      const { data: subscription, error } = await supabase
+      // First try to get the subscription directly with the MongoDB ObjectId
+      let { data: subscription, error } = await supabase
         .from('user_subscriptions')
         .select('*, subscription_plans(*)')
         .eq('user_id', userId)
         .eq('status', 'active')
         .maybeSingle();
 
-      if (error) {
-        console.error('Error fetching subscription:', error);
-        return { subscription: null, features: defaultFeatures };
+      // If that fails, try to get the user's email from MongoDB and find subscription by email
+      if (error && error.code === '22P02') { // Invalid UUID format error
+        console.log('Invalid UUID format, trying to find user by email');
+        
+        // Get user from MongoDB to find email
+        const authConn = await connectToAuthDB();
+        const User = authConn.model('User');
+        const user = await User.findById(userId);
+        
+        if (user && user.email) {
+          // Try to find a subscription linked to this email
+          const { data: userByEmail, error: emailError } = await supabase
+            .from('users')
+            .select('id')
+            .eq('email', user.email)
+            .maybeSingle();
+            
+          if (!emailError && userByEmail) {
+            // Try again with the Supabase user ID
+            const { data: subByEmail, error: subError } = await supabase
+              .from('user_subscriptions')
+              .select('*, subscription_plans(*)')
+              .eq('user_id', userByEmail.id)
+              .eq('status', 'active')
+              .maybeSingle();
+              
+            if (!subError) {
+              subscription = subByEmail;
+            }
+          }
+        }
       }
 
       if (!subscription) {
@@ -185,34 +214,8 @@ export async function getUserSubscriptionWithFeatures(userId: string): Promise<{
       const features = subscription.subscription_plans.features as SubscriptionFeatures;
 
       return { subscription, features };
-    } catch (subError) {
-      console.error('Error in subscription query:', subError);
-      
-      // If there's an error with the UUID format, try to get a valid UUID from auth
-      try {
-        const { data: userData, error: userError } = await supabase.auth.admin.getUserById(userId);
-        
-        if (!userError && userData?.user) {
-          const supabaseUserId = userData.user.id;
-          
-          // Retry with the valid UUID
-          const { data: subscription, error } = await supabase
-            .from('user_subscriptions')
-            .select('*, subscription_plans(*)')
-            .eq('user_id', supabaseUserId)
-            .eq('status', 'active')
-            .maybeSingle();
-            
-          if (!error && subscription) {
-            // Extract features from the subscription plan
-            const features = subscription.subscription_plans.features as SubscriptionFeatures;
-            return { subscription, features };
-          }
-        }
-      } catch (retryError) {
-        console.error('Error in retry subscription query:', retryError);
-      }
-      
+    } catch (error) {
+      console.error('Error in subscription query:', error);
       return { subscription: null, features: defaultFeatures };
     }
   } catch (error) {
@@ -252,51 +255,10 @@ export async function hasReachedProductLimit(userId: string): Promise<{
       };
     }
 
-    // Get count of user's saved products
+    // Get count of user's saved products directly from MongoDB
+    // This avoids the need for Supabase admin API access
     try {
-      // Try to get user metadata from Supabase
-      const { data: userData, error: userError } = await supabase.auth.admin.getUserById(userId);
-      
-      if (userError) {
-        console.error('Error fetching user with admin API:', userError);
-        
-        // Fallback to MongoDB count if Supabase fails
-        const authConn = await connectToAuthDB();
-        const User = authConn.model('User');
-        const user = await User.findById(userId);
-        
-        if (!user) {
-          return {
-            hasReached: true,
-            currentCount: 0,
-            maxAllowed: features.max_products,
-            subscription
-          };
-        }
-        
-        const savedProductsCount = user.savedProducts?.length || 0;
-        
-        return {
-          hasReached: savedProductsCount >= features.max_products,
-          currentCount: savedProductsCount,
-          maxAllowed: features.max_products,
-          subscription
-        };
-      }
-      
-      // Get saved products count from user metadata
-      const savedProductsCount = userData?.user?.user_metadata?.saved_products_count || 0;
-      
-      return {
-        hasReached: savedProductsCount >= features.max_products,
-        currentCount: savedProductsCount,
-        maxAllowed: features.max_products,
-        subscription
-      };
-    } catch (error) {
-      console.error('Error fetching user metadata:', error);
-      
-      // Fallback to MongoDB count
+      // Connect to MongoDB to get saved products count
       const authConn = await connectToAuthDB();
       const User = authConn.model('User');
       const user = await User.findById(userId);
@@ -318,11 +280,19 @@ export async function hasReachedProductLimit(userId: string): Promise<{
         maxAllowed: features.max_products,
         subscription
       };
+    } catch (error) {
+      console.error('Error fetching user from MongoDB:', error);
+      return {
+        hasReached: false, // Default to allowing the save if we can't check
+        currentCount: 0,
+        maxAllowed: features.max_products,
+        subscription
+      };
     }
   } catch (error) {
     console.error('Error in hasReachedProductLimit:', error);
     return {
-      hasReached: true,
+      hasReached: false, // Default to allowing the save if we can't check
       currentCount: 0,
       maxAllowed: 5, // Default to free tier limit
       subscription: null

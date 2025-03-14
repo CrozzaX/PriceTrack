@@ -50,7 +50,7 @@ export default async function ProductsPage() {
       </section>
 
       <section className="trending-section">
-        <h2 className="section-text">Trending Products</h2>
+        <h2 className="section-text">Added Products</h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {sortedProducts?.map((product) => (

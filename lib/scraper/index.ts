@@ -123,22 +123,32 @@ export async function scrapeAmazonProduct(url: string) {
       return null;
     }
     
+    // Fix: Ensure we're passing strings to extractPrice by getting text content first
+    const priceToPayText = $('.priceToPay span.a-price-whole').text().trim();
+    const colorBasePriceText = $('.a.size.base.a-color-price').text().trim();
+    const selectedButtonPriceText = $('.a-button-selected .a-color-base').text().trim();
+    const offscreenPriceText = $('.a-price .a-offscreen').text().trim();
+    const ourPriceText = $('#priceblock_ourprice').text().trim();
+    const dealPriceText = $('#priceblock_dealprice').text().trim();
+    
     const currentPrice = extractPrice(
-      $('.priceToPay span.a-price-whole'),
-      $('.a.size.base.a-color-price'),
-      $('.a-button-selected .a-color-base'),
-      $('.a-price .a-offscreen'),
-      $('#priceblock_ourprice'),
-      $('#priceblock_dealprice'),
+      priceToPayText || 
+      colorBasePriceText || 
+      selectedButtonPriceText || 
+      offscreenPriceText || 
+      ourPriceText || 
+      dealPriceText || 
+      '0'
     );
 
-    const originalPrice = extractPrice(
-      $('#priceblock_ourprice'),
-      $('.a-price.a-text-price span.a-offscreen'),
-      $('#listPrice'),
-      $('#priceblock_dealprice'),
-      $('.a-size-base.a-color-price')
-    );
+    const originalPriceText = $('#priceblock_ourprice').text().trim() || 
+                            $('.a-price.a-text-price span.a-offscreen').text().trim() || 
+                            $('#listPrice').text().trim() || 
+                            $('#priceblock_dealprice').text().trim() || 
+                            $('.a-size-base.a-color-price').text().trim() || 
+                            '0';
+                            
+    const originalPrice = extractPrice(originalPriceText);
 
     const outOfStock = $('#availability span').text().trim().toLowerCase().includes('unavailable') || 
                      $('#availability').text().trim().toLowerCase().includes('out of stock');
@@ -174,12 +184,22 @@ export async function scrapeAmazonProduct(url: string) {
       }
     }
 
-    const currency = extractCurrency($('.a-price-symbol')) || '₹';
+    // Fix: Get text content for currency
+    const currencyText = $('.a-price-symbol').text().trim();
+    const currency = extractCurrency(currencyText) || '₹';
+    
     const discountRate = $('.savingsPercentage').text().replace(/[-%]/g, "") || 
                        $('.discountText').text().replace(/[-%]/g, "") || 
                        '0';
 
-    const description = extractDescription($);
+    // Fix: Create a proper description string
+    const descriptionElements = [
+      $('#productDescription').text().trim(),
+      $('#feature-bullets').text().trim(),
+      $('.a-expander-content').text().trim()
+    ].filter(Boolean).join(' ');
+    
+    const description = extractDescription(descriptionElements);
 
     const reviewsText = $('#acrCustomerReviewLink #acrCustomerReviewText').first().text().trim() || 
                       $('#acrCustomerReviewText').text().trim();
