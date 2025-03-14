@@ -9,7 +9,8 @@ import { Product } from "@/types";
 import Image from "next/image";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import PriceHistoryChart from '@/components/PriceHistoryChart';
+import PriceHistoryWrapper from '@/components/subscription/PriceHistoryWrapper';
+import SubscriptionFeatureCheck from "@/components/subscription/SubscriptionFeatureCheck";
 
 interface Props {
   params: Promise<{ id: string }>
@@ -117,10 +118,11 @@ export default async function ProductDetails({ params }: Props) {
               />
             </div>
 
+            {/* Price History Chart */}
             <div className="my-7">
               <h3 className="text-2xl text-secondary font-semibold mb-4">Price History</h3>
-              <PriceHistoryChart 
-                priceHistory={product.priceHistory} 
+              <PriceHistoryWrapper 
+                priceHistory={product.priceHistory}
                 lowestPrice={product.lowestPrice}
                 highestPrice={product.highestPrice}
                 currentPrice={product.currentPrice}

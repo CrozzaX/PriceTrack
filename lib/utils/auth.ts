@@ -16,6 +16,84 @@ const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Cache valid user IDs to reduce DB lookups
 const userEmailToIdCache = new Map<string, string>();
+// Cache for mapping between Supabase UUIDs and MongoDB ObjectIds
+const uuidToObjectIdCache = new Map<string, string>();
+const objectIdToUuidCache = new Map<string, string>();
+
+// Helper function to get MongoDB ObjectId from Supabase UUID
+async function getObjectIdFromUUID(uuid: string): Promise<string | null> {
+  // Check cache first
+  if (uuidToObjectIdCache.has(uuid)) {
+    return uuidToObjectIdCache.get(uuid)!;
+  }
+  
+  try {
+    // Get user email from Supabase
+    const { data, error } = await supabase.auth.admin.getUserById(uuid);
+    
+    if (error || !data.user || !data.user.email) {
+      return null;
+    }
+    
+    // Find user in MongoDB by email
+    const objectId = await getUserIdByEmail(data.user.email);
+    
+    if (objectId) {
+      // Cache the mapping
+      uuidToObjectIdCache.set(uuid, objectId);
+      objectIdToUuidCache.set(objectId, uuid);
+    }
+    
+    return objectId;
+  } catch (error) {
+    console.error('Error getting ObjectId from UUID:', error);
+    return null;
+  }
+}
+
+// Helper function to get Supabase UUID from MongoDB ObjectId
+async function getUUIDFromObjectId(objectId: string): Promise<string | null> {
+  // Check cache first
+  if (objectIdToUuidCache.has(objectId)) {
+    return objectIdToUuidCache.get(objectId)!;
+  }
+  
+  try {
+    // Get user from MongoDB
+    const authConn = await connectToAuthDB();
+    const User = authConn.model('User');
+    const user = await User.findById(objectId);
+    
+    if (!user || !user.email) {
+      return null;
+    }
+    
+    // List all users and find the one with matching email
+    const { data, error } = await supabase.auth.admin.listUsers();
+    
+    if (error) {
+      return null;
+    }
+    
+    // Find the user with matching email
+    const matchingUser = data.users.find(u => u.email === user.email);
+    
+    if (!matchingUser) {
+      return null;
+    }
+    
+    const uuid = matchingUser.id;
+    
+    // Cache the mapping
+    uuidToObjectIdCache.set(uuid, objectId);
+    objectIdToUuidCache.set(objectId, uuid);
+    
+    return uuid;
+  } catch (error) {
+    console.error('Error getting UUID from ObjectId:', error);
+    return null;
+  }
+}
 
 export async function verifyToken(req: NextRequest): Promise<string | null> {
   try {
@@ -104,6 +182,10 @@ export async function verifyToken(req: NextRequest): Promise<string | null> {
       if (userId) {
         // Cache the result
         userEmailToIdCache.set(email, userId);
+        
+        // Also cache the UUID to ObjectId mapping
+        objectIdToUuidCache.set(userId, data.user.id);
+        uuidToObjectIdCache.set(data.user.id, userId);
       }
       return userId;
     } catch (supabaseError) {
@@ -115,18 +197,13 @@ export async function verifyToken(req: NextRequest): Promise<string | null> {
   }
 }
 
-// Helper function to get user ID from MongoDB by email
+// Helper function to get user ID by email
 async function getUserIdByEmail(email: string): Promise<string | null> {
   try {
-    const conn = await connectToAuthDB();
-    const User = conn.model('User');
-    
+    const authConn = await connectToAuthDB();
+    const User = authConn.model('User');
     const user = await User.findOne({ email });
-    if (!user) {
-      return null;
-    }
-    
-    return user._id.toString();
+    return user ? user._id.toString() : null;
   } catch (error) {
     console.error('Error finding user by email:', error);
     return null;

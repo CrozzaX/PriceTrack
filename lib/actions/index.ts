@@ -7,6 +7,7 @@ import { scrapeAmazonProduct, scrapeFlipkartProduct, scrapeMyntraProduct } from 
 import { getAveragePrice, getHighestPrice, getLowestPrice } from "../utils";
 import { Product as ProductType } from "@/types";
 import mongoose from 'mongoose';
+import { hasReachedProductLimit } from '@/middleware/subscription';
 
 // Helper function to safely serialize MongoDB documents
 const serializeMongoDocument = (doc: any): any => {
@@ -167,6 +168,26 @@ export async function addUserEmailToProduct(productId: string, userEmail: string
   try {
     console.log(`Starting to add email ${userEmail} to product ${productId}...`);
     connectToDB();
+    
+    // Check if user has reached their product limit
+    // Extract user ID from email (this is a simplified approach)
+    const emailParts = userEmail.split('@');
+    const userId = emailParts[0]; // Using username part of email as a simple user ID
+    
+    const { hasReached, currentCount, maxAllowed } = await hasReachedProductLimit(userId);
+    
+    if (hasReached) {
+      console.log(`User ${userEmail} has reached their product limit (${currentCount}/${maxAllowed})`);
+      return {
+        success: false,
+        message: `You've reached the maximum limit of ${maxAllowed} products for your subscription plan.`,
+        isAlreadyTracking: false,
+        limitReached: true,
+        currentCount,
+        maxAllowed,
+        product: null
+      };
+    }
     
     const product = await Product.findById(productId);
 

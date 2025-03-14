@@ -91,9 +91,6 @@ export default function PaymentForm({ plan, billingPeriod }: PaymentFormProps) {
       // Calculate price based on billing period
       const priceINR = calculatePrice(plan, billingPeriod);
       
-      // Convert back to USD for backend processing (if needed)
-      const priceUSD = priceINR / 75;
-      
       const startDate = new Date();
       const endDate = new Date();
       endDate.setDate(endDate.getDate() + durationDays);
@@ -112,15 +109,17 @@ export default function PaymentForm({ plan, billingPeriod }: PaymentFormProps) {
           payment_status: 'paid',
           payment_method: 'credit_card',
           transaction_data: {
-            amount: priceUSD, // Keep USD for backend processing
-            amount_display: priceINR, // Add INR amount for display
-            currency: 'INR', // Change currency to INR
+            amount: priceINR,
+            currency: 'INR',
             status: 'paid',
             payment_method: 'credit_card',
             payment_details: { 
               last4: formData.cardNumber.slice(-4),
               name: formData.cardName,
-              expiry: formData.expiryDate
+              expiry: formData.expiryDate,
+              plan_name: plan.name,
+              billing_period: billingPeriod,
+              amount_inr: priceINR
             }
           }
         }),

@@ -108,18 +108,28 @@ export async function POST(request: NextRequest) {
         transaction_data.status = 'pending';
       }
       
+      // Prepare transaction data with correct fields
+      const transactionRecord = {
+        user_id,
+        subscription_id: subscription.id,
+        amount: transaction_data.amount || 0,
+        currency: transaction_data.currency || 'USD',
+        status: transaction_data.status || 'pending',
+        payment_method: transaction_data.payment_method || payment_method,
+        payment_details: transaction_data.payment_details || {}
+      };
+      
+      console.log('Creating transaction with data:', JSON.stringify(transactionRecord, null, 2));
+      
       const { data: transaction, error: transactionError } = await supabaseAdmin
         .from('subscription_transactions')
-        .insert({
-          user_id,
-          subscription_id: subscription.id,
-          ...transaction_data
-        })
+        .insert(transactionRecord)
         .select()
         .single();
       
       if (transactionError) {
         console.error('Transaction creation error:', transactionError);
+        console.error('Transaction data:', JSON.stringify(transactionRecord, null, 2));
         // Don't fail the whole request if transaction creation fails
       } else {
         console.log('Transaction created successfully:', transaction.id);
@@ -127,7 +137,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Update user role based on the plan
-    const subscription_tier = planData.tier || 'free';
+    const subscription_tier = planData.name.toLowerCase() || 'free';
     
     const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
       user_id,

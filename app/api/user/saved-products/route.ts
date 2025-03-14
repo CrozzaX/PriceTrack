@@ -3,6 +3,8 @@ import { connectToAuthDB } from '@/lib/mongoose/auth';
 import { connectToDB } from '@/lib/mongoose';
 import { verifyToken } from '@/lib/utils/auth';
 import Product from '@/lib/models/product.model';
+import { hasReachedProductLimit } from '@/middleware/subscription';
+import { supabase } from '@/lib/supabase';
 
 interface SavedProduct {
   productId: any; // Using 'any' for mongoose ObjectId
@@ -77,6 +79,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Unauthorized' }, { status: 401 });
     }
 
+    // Check subscription limits
+    const { hasReached, currentCount, maxAllowed, subscription } = await hasReachedProductLimit(userId);
+    
     // Connect to the auth database
     const authConn = await connectToAuthDB();
     const User = authConn.model('User');
@@ -136,6 +141,22 @@ export async function POST(req: NextRequest) {
       });
     }
     
+    // Check if user has reached their product limit
+    if (hasReached) {
+      const planName = subscription?.subscription_plans?.name || 'Free';
+      return NextResponse.json({ 
+        message: `You've reached the maximum limit of ${maxAllowed} products for your ${planName} plan. Please upgrade to track more products.`,
+        limitReached: true,
+        currentCount,
+        maxAllowed,
+        subscription: subscription ? {
+          name: subscription.subscription_plans.name,
+          price: subscription.subscription_plans.price,
+          features: subscription.subscription_plans.features
+        } : null
+      }, { status: 403 });
+    }
+    
     // Add product to savedProducts
     const savedProduct = {
       productId,
@@ -146,6 +167,48 @@ export async function POST(req: NextRequest) {
     user.savedProducts.push(savedProduct);
     
     await user.save();
+    
+    // Update the saved products count in Supabase user metadata
+    try {
+      // Correctly query the auth.users table in the auth schema
+      const { data: authUser, error: authError } = await supabase
+        .from('auth.users')
+        .select('metadata')
+        .eq('id', userId)
+        .single();
+      
+      if (authError) {
+        console.error('Error fetching user metadata:', authError);
+        
+        // Try alternative approach using auth admin API
+        try {
+          const { data: userData, error: userError } = await supabase.auth.admin.getUserById(userId);
+          
+          if (!userError && userData?.user) {
+            const metadata = userData.user.user_metadata || {};
+            metadata.saved_products_count = (user.savedProducts || []).length;
+            
+            await supabase.auth.admin.updateUserById(userId, {
+              user_metadata: metadata
+            });
+          } else {
+            console.error('Error fetching user with admin API:', userError);
+          }
+        } catch (adminError) {
+          console.error('Error using admin API:', adminError);
+        }
+      } else if (authUser) {
+        const metadata = authUser.metadata || {};
+        metadata.saved_products_count = (user.savedProducts || []).length;
+        
+        await supabase.auth.admin.updateUserById(userId, {
+          user_metadata: metadata
+        });
+      }
+    } catch (metadataError) {
+      console.error('Error updating user metadata:', metadataError);
+      // Continue even if metadata update fails
+    }
     
     return NextResponse.json({ 
       message: 'Product saved successfully',

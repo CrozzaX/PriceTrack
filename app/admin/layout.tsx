@@ -34,6 +34,7 @@ export default function AdminLayout({
     { name: 'Subscriptions', path: '/admin/subscriptions' },
     { name: 'Plans', path: '/admin/plans' },
     { name: 'Transactions', path: '/admin/transactions' },
+    { name: 'Fix Transactions', path: '/admin/fix-transactions' },
   ];
 
   return (

@@ -1,11 +1,13 @@
 "use client"
 
-import { FormEvent, Fragment, useState } from 'react'
+import { FormEvent, Fragment, useState, useEffect } from 'react'
 import { Dialog, Transition } from '@headlessui/react'
 import Image from 'next/image'
 import { addUserEmailToProduct } from '@/lib/actions'
 import { motion } from 'framer-motion'
 import { toast } from 'react-hot-toast'
+import { useAuth } from '@/lib/context/AuthContext'
+import Link from 'next/link'
 
 interface Props {
   productId: string
@@ -19,6 +21,31 @@ const Modal = ({ productId }: Props) => {
   const [isTestingEmail, setIsTestingEmail] = useState(false);
   const [statusMessage, setStatusMessage] = useState('');
   const [isAlreadyTracking, setIsAlreadyTracking] = useState(false);
+  const [limitReached, setLimitReached] = useState(false);
+  const [productLimit, setProductLimit] = useState({ current: 0, max: 5 });
+  const { user, subscription } = useAuth();
+
+  // Check subscription limits
+  useEffect(() => {
+    if (!user) return;
+    
+    // If no subscription, user is on free tier
+    if (!subscription) {
+      setProductLimit({ current: 0, max: 5 });
+      return;
+    }
+    
+    // Check subscription plan limits
+    const features = subscription.subscription_plans?.features;
+    const hasUnlimited = features?.unlimited_products === true;
+    
+    if (hasUnlimited) {
+      setProductLimit({ current: 0, max: Infinity });
+    } else {
+      const maxProducts = features?.max_products || 5;
+      setProductLimit({ current: 0, max: maxProducts });
+    }
+  }, [user, subscription]);
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -26,6 +53,7 @@ const Modal = ({ productId }: Props) => {
     setIsSuccess(false);
     setStatusMessage('');
     setIsAlreadyTracking(false);
+    setLimitReached(false);
 
     try {
       // Add email to product tracking list
@@ -48,31 +76,28 @@ const Modal = ({ productId }: Props) => {
           toast.success('Product tracking enabled, but email delivery failed.');
           setStatusMessage(`Product tracking enabled, but the confirmation email couldn't be sent. Error: ${result.emailError}`);
         }
-        
-        // Reset form after a delay only if not already tracking
-        if (!result.isAlreadyTracking) {
-          setTimeout(() => {
-            setEmail('');
-            closeModal();
-            setIsSuccess(false);
-            setStatusMessage('');
-            setIsAlreadyTracking(false);
-          }, 5000);
-        }
+      } else if (result.limitReached) {
+        // User has reached their product limit
+        setLimitReached(true);
+        setProductLimit({
+          current: result.currentCount || 0,
+          max: result.maxAllowed || 5
+        });
+        toast.error('Product limit reached!');
+        setStatusMessage(`You've reached the maximum limit of ${result.maxAllowed} products for your subscription plan. Please upgrade to track more products.`);
       } else {
-        // Something went wrong with tracking
-        toast.error(result.message || 'Failed to track product');
-        setStatusMessage(`Error: ${result.message}. Please try again or use the test email button.`);
+        // Other error
+        toast.error('Failed to track product. Please try again.');
+        setStatusMessage(`Error: ${result.message || 'Unknown error occurred'}`);
       }
-    } catch (error) {
-      console.error('Error tracking product:', error);
-      toast.error('Failed to track product. Please try again.');
-      setIsSuccess(false);
-      setStatusMessage('There was an error enabling tracking. Please try the test email button to check if email delivery works.');
+    } catch (error: any) {
+      console.error('Error in tracking product:', error);
+      toast.error('Failed to track product');
+      setStatusMessage(`Error: ${error.message || 'Unknown error occurred'}`);
     } finally {
       setIsSubmitting(false);
     }
-  }
+  };
 
   // New function to test email directly
   const handleTestEmail = async () => {
@@ -423,6 +448,38 @@ const Modal = ({ productId }: Props) => {
                       We'll send you an email confirmation. Please check your spam folder if you don't see it.
                     </p>
                   </motion.form>
+                )}
+
+                {/* Show subscription upgrade prompt if limit reached */}
+                {limitReached && (
+                  <div className="mt-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <div className="flex items-start">
+                      <div className="p-2 bg-red-100 rounded-full mr-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-red-500" viewBox="0 0 20 20" fill="currentColor">
+                          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                      </div>
+                      <div>
+                        <h4 className="font-medium text-sm text-red-800">
+                          Product limit reached ({productLimit.current}/{productLimit.max})
+                        </h4>
+                        <p className="text-sm mt-1 text-red-600">
+                          You've reached the maximum number of products for your subscription plan.
+                        </p>
+                        <div className="mt-3">
+                          <Link 
+                            href="/subscription/plans" 
+                            className="inline-flex items-center text-sm font-medium text-red-600 hover:text-red-800"
+                          >
+                            Upgrade Plan
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M10.293 5.293a1 1 0 011.414 0l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414-1.414L12.586 11H5a1 1 0 110-2h7.586l-2.293-2.293a1 1 0 010-1.414z" clipRule="evenodd" />
+                            </svg>
+                          </Link>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 )}
               </motion.div>
             </Transition.Child>

@@ -19,6 +19,8 @@ import {
 import { PriceHistoryItem } from '@/types';
 import { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
+import { useAuth } from '@/lib/context/AuthContext';
+import Link from 'next/link';
 
 interface PriceHistoryChartProps {
   priceHistory: PriceHistoryItem[];
@@ -27,6 +29,43 @@ interface PriceHistoryChartProps {
   currentPrice?: number;
   averagePrice?: number;
 }
+
+// Helper component for time range buttons
+const TimeRangeButton = ({ active, onClick, children }: any) => (
+  <motion.button
+    whileHover={{ scale: 1.05 }}
+    whileTap={{ scale: 0.95 }}
+    className={`px-3 py-1 rounded-md text-sm font-medium transition-colors ${
+      active 
+        ? 'bg-[#4F46E5] text-white' 
+        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+    }`}
+    onClick={onClick}
+  >
+    {children}
+  </motion.button>
+);
+
+// Helper component for price stat cards
+const PriceStatCard = ({ title, value, change, isUp, highlight }: any) => (
+  <div className={`bg-gray-50 p-3 rounded-lg border ${
+    highlight === 'green' ? 'border-green-200' : 
+    highlight === 'red' ? 'border-red-200' : 
+    'border-gray-200'
+  }`}>
+    <p className="text-xs text-gray-500 mb-1">{title}</p>
+    <p className={`text-lg font-bold ${
+      highlight === 'green' ? 'text-green-600' : 
+      highlight === 'red' ? 'text-red-600' : 
+      'text-gray-800'
+    }`}>{value}</p>
+    {change && (
+      <p className={`text-xs font-medium ${isUp ? 'text-green-500' : 'text-red-500'}`}>
+        {change}
+      </p>
+    )}
+  </div>
+);
 
 const PriceHistoryChart = ({ 
   priceHistory, 
@@ -39,10 +78,56 @@ const PriceHistoryChart = ({
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [timeRange, setTimeRange] = useState<'all' | '3m' | '1m' | '1w'>('1w');
   const [hoveredPrice, setHoveredPrice] = useState<number | null>(null);
+  const { user, subscription } = useAuth();
 
   useEffect(() => {
     setMounted(true);
   }, []);
+
+  // Check if user has access to price history feature
+  const hasPriceHistoryAccess = useMemo(() => {
+    if (!user) return false;
+    
+    // If no subscription, user is on free tier
+    if (!subscription) return false;
+    
+    // Check if subscription plan has price_history feature
+    const features = subscription.subscription_plans?.features;
+    return features?.price_history === true;
+  }, [user, subscription]);
+
+  // If user doesn't have access to price history, show upgrade prompt
+  if (mounted && !hasPriceHistoryAccess) {
+    return (
+      <div className="w-full bg-white p-6 rounded-xl shadow-sm">
+        <div className="flex flex-col items-center justify-center py-10">
+          <div className="bg-blue-50 p-3 rounded-full mb-4">
+            <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+          </div>
+          <h3 className="text-xl font-bold text-gray-800 mb-2">Upgrade to See Price History</h3>
+          <p className="text-gray-600 text-center mb-6 max-w-md">
+            Price history charts are available on our Basic and Premium plans. Upgrade now to unlock this feature and track price trends over time.
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Link 
+              href="/subscription" 
+              className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-md text-white bg-[#4F46E5] hover:bg-[#4338CA] transition-all"
+            >
+              Upgrade Now
+            </Link>
+            <Link 
+              href="/subscription/plans" 
+              className="inline-flex items-center justify-center px-6 py-3 border border-gray-300 text-base font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 transition-all"
+            >
+              View Plans
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // If there's only one price point or all prices are the same, generate more varied price history
   const enhancedPriceHistory = useMemo(() => {
@@ -469,63 +554,6 @@ const PriceHistoryChart = ({
           highlight="red"
         />
       </div>
-    </div>
-  );
-};
-
-// Time range button component
-const TimeRangeButton = ({ 
-  children, 
-  active, 
-  onClick 
-}: { 
-  children: React.ReactNode; 
-  active: boolean; 
-  onClick: () => void;
-}) => {
-  return (
-    <button
-      onClick={onClick}
-      className={`px-3 py-1 text-sm font-medium rounded-full transition-all ${
-        active 
-          ? 'bg-indigo-100 text-indigo-700' 
-          : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-      }`}
-    >
-      {children}
-    </button>
-  );
-};
-
-// Price stat card component
-const PriceStatCard = ({ 
-  title, 
-  value, 
-  change, 
-  isUp,
-  highlight
-}: { 
-  title: string; 
-  value: string; 
-  change?: string;
-  isUp?: boolean;
-  highlight?: 'green' | 'red';
-}) => {
-  return (
-    <div className="bg-gray-50 p-3 rounded-lg">
-      <p className="text-xs text-gray-500 mb-1">{title}</p>
-      <p className={`text-lg font-bold ${
-        highlight === 'green' ? 'text-green-600' : 
-        highlight === 'red' ? 'text-red-600' : 
-        'text-gray-800'
-      }`}>
-        {value}
-      </p>
-      {change && (
-        <p className={`text-xs font-medium ${isUp ? 'text-green-600' : 'text-red-600'}`}>
-          {change}
-        </p>
-      )}
     </div>
   );
 };
